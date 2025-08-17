@@ -77,4 +77,9 @@ namespace SigortaYonetimAPI.Models.DTOs
         public decimal? toplam_tutar { get; set; }
         public string? notlar { get; set; }
     }
+
+    public class TeklifRedDto
+    {
+        public string red_nedeni { get; set; } = string.Empty;
+    }
 } 

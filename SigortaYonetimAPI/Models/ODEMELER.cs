@@ -35,6 +35,12 @@ public partial class ODEMELER
 
     public string? kart_son_4_hane { get; set; }
 
+    // Güvenli ödeme bilgileri (şifrelenmiş)
+    public string? sifreli_odeme_bilgileri { get; set; }
+
+    // Ödeme yöntemi detayları
+    public string? odeme_yontemi_detay { get; set; } // "NAKIT", "KREDI_KARTI", "HAVALE"
+
     public string? pos_referans_no { get; set; }
 
     public string? banka_referans_no { get; set; }

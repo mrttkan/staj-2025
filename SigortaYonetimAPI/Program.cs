@@ -14,7 +14,14 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.MaxDepth = 32;
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
+
+// Response caching ekle
+builder.Services.AddResponseCaching();
+
+// HttpClient servisi ekle
+builder.Services.AddHttpClient();
 
 // CORS ayarları ekle
 builder.Services.AddCors(options =>
@@ -36,18 +43,26 @@ builder.Services.AddDbContext<SigortaYonetimDbContext>(options =>
 // Identity yapılandırması
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
-    // Şifre politikaları
-    options.Password.RequiredLength = 6;
-    options.Password.RequireDigit = false;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
+    // Güçlü şifre politikaları - Chrome uyarısını önlemek için
+    options.Password.RequiredLength = 12; // Minimum 12 karakter
+    options.Password.RequireDigit = true; // Rakam zorunlu
+    options.Password.RequireLowercase = true; // Küçük harf zorunlu
+    options.Password.RequireUppercase = true; // Büyük harf zorunlu
+    options.Password.RequireNonAlphanumeric = true; // Özel karakter zorunlu
+    options.Password.RequiredUniqueChars = 4; // En az 4 farklı karakter
     
     // Kullanıcı politikaları
     options.User.RequireUniqueEmail = true;
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+    
+    // Hesap kilitleme politikaları
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
     
     // E-posta doğrulama (şimdilik kapalı)
     options.SignIn.RequireConfirmedEmail = false;
+    options.SignIn.RequireConfirmedAccount = false;
 })
 .AddEntityFrameworkStores<SigortaYonetimDbContext>()
 .AddDefaultTokenProviders();
@@ -77,10 +92,38 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+    
+    // JWT debug events
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"JWT Authentication Failed: {context.Exception.Message}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine($"JWT Token Validated for user: {context.Principal?.Identity?.Name}");
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"JWT Challenge: {context.Error}, {context.ErrorDescription}");
+            return Task.CompletedTask;
+        },
+        OnMessageReceived = context =>
+        {
+            Console.WriteLine($"JWT Message Received: {context.Token}");
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // Servis kayıtları
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IPricingService, PricingService>();
+builder.Services.AddScoped<IPricingCalculationService, PricingCalculationService>();
+builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -101,18 +144,19 @@ if (app.Environment.IsDevelopment())
 // CORS middleware'ini ekle
 app.UseCors("AllowReactApp");
 
+// Response caching middleware'ini ekle
+app.UseResponseCaching();
+
 // Authentication & Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Veritabanı seed verilerini oluştur
+// Veritabanı oluştur (seed data olmadan)
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SigortaYonetimDbContext>();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     
     try
     {
@@ -120,30 +164,11 @@ using (var scope = app.Services.CreateScope())
         if (!await context.Database.CanConnectAsync())
         {
             await context.Database.EnsureCreatedAsync();
+            Console.WriteLine("Veritabanı oluşturuldu.");
         }
-        
-        // Seed verilerini oluştur
-        await SeedData.InitializeAsync(app.Services);
-        
-        // Rolleri oluştur (eğer yoksa)
-        var roles = new[] { "ADMIN", "ACENTE", "KULLANICI" };
-        
-        foreach (var role in roles)
+        else
         {
-            if (!await roleManager.RoleExistsAsync(role))
-            {
-                await roleManager.CreateAsync(new ApplicationRole 
-                { 
-                    Name = role,
-                    Aciklama = role switch
-                    {
-                        "ADMIN" => "Sistem Yöneticisi",
-                        "ACENTE" => "Acente Kullanıcısı", 
-                        "KULLANICI" => "Normal Kullanıcı",
-                        _ => ""
-                    }
-                });
-            }
+            Console.WriteLine("Veritabanı zaten mevcut.");
         }
     }
     catch (Exception ex)

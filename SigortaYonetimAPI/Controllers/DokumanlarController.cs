@@ -39,7 +39,7 @@ namespace SigortaYonetimAPI.Controllers
                 var user = await _context.Users.FindAsync(int.Parse(userId ?? "0"));
                 if (user?.KullanicilarId != null)
                 {
-                    query = query.Where(d => d.musteri.kullanici_id == user.KullanicilarId);
+                    query = query.Where(d => d.musteri != null && d.musteri.kullanici_id == user.KullanicilarId);
                 }
             }
 
@@ -52,14 +52,14 @@ namespace SigortaYonetimAPI.Controllers
                     d.dosya_boyutu,
                     d.mime_type,
                     d.kategori_id,
-                    kategori_adi = d.kategori.deger_aciklama,
+                    kategori_adi = d.kategori != null ? d.kategori.deger_aciklama : string.Empty,
                     d.dosya_turu,
                     d.aciklama,
                     d.yuklenme_tarihi,
                     d.musteri_id,
                     musteri = d.musteri,
                     d.police_id,
-                    police_no = d.police.police_no
+                    police_no = d.police != null ? d.police.police_no : string.Empty
                 })
                 .ToListAsync();
 
@@ -67,19 +67,19 @@ namespace SigortaYonetimAPI.Controllers
             {
                 Id = d.id,
                 DosyaAdi = d.dosya_adi ?? string.Empty,
-                OrijinalDosyaAdi = d.orijinal_dosya_adi,
-                DosyaYolu = d.dosya_yolu,
+                OrijinalDosyaAdi = d.orijinal_dosya_adi ?? string.Empty,
+                DosyaYolu = d.dosya_yolu ?? string.Empty,
                 DosyaBoyutu = d.dosya_boyutu ?? 0,
-                MimeType = d.mime_type,
+                MimeType = d.mime_type ?? string.Empty,
                 KategoriId = d.kategori_id,
                 KategoriAdi = d.kategori_adi,
-                DosyaTuru = d.dosya_turu,
-                Aciklama = d.aciklama,
+                DosyaTuru = d.dosya_turu ?? string.Empty,
+                Aciklama = d.aciklama ?? string.Empty,
                 YuklenmeTarihi = d.yuklenme_tarihi,
                 MusteriId = d.musteri_id,
                 MusteriAdi = d.musteri != null ? ((d.musteri.ad ?? "") + " " + (d.musteri.soyad ?? "")).Trim() : null,
                 PoliceId = d.police_id,
-                PoliceNo = d.police_no
+                PoliceNo = d.police_no ?? string.Empty
             }).ToList();
 
             return Ok(dokumanlar);
@@ -182,7 +182,7 @@ namespace SigortaYonetimAPI.Controllers
                 kategori_id = uploadDto.KategoriId,
                 dosya_turu = fileExtension,
                 aciklama = uploadDto.Aciklama,
-                yukleyen_kullanici_id = int.Parse(userId),
+                yukleyen_kullanici_id = int.Parse(userId ?? "0"),
                 yuklenme_tarihi = DateTime.Now,
                 yukleme_tarihi = DateTime.Now
             };
@@ -210,7 +210,7 @@ namespace SigortaYonetimAPI.Controllers
 
             if (userRole == "USER")
             {
-                var user = await _context.Users.FindAsync(int.Parse(userId));
+                var user = await _context.Users.FindAsync(int.Parse(userId ?? "0"));
                 if (user?.KullanicilarId != dokuman.musteri?.kullanici_id)
                     return Unauthorized("Bu dökümana erişim yetkiniz yok");
             }

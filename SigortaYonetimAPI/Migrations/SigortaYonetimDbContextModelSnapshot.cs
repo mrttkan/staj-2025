@@ -325,6 +325,18 @@ namespace SigortaYonetimAPI.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<int?>("kullanici_id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("mesaj")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("musteri_id")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("okundu_mi")
+                        .HasColumnType("bit");
+
                     b.Property<bool?>("okundu_mu")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -332,6 +344,9 @@ namespace SigortaYonetimAPI.Migrations
 
                     b.Property<DateTime?>("okunma_tarihi")
                         .HasColumnType("datetime");
+
+                    b.Property<DateTime?>("olusturma_tarihi")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("oncelik_id")
                         .HasColumnType("int");
@@ -541,6 +556,9 @@ namespace SigortaYonetimAPI.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("grup")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("olusturma_tarihi")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
@@ -553,6 +571,12 @@ namespace SigortaYonetimAPI.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("tanim")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ust_id")
+                        .HasColumnType("int");
 
                     b.HasKey("id")
                         .HasName("PK__DURUM_TA__3213E83F7B05CF3F");
@@ -964,6 +988,9 @@ namespace SigortaYonetimAPI.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<string>("sirket_adi")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("soyad")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -975,6 +1002,9 @@ namespace SigortaYonetimAPI.Migrations
                     b.Property<string>("telefon")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("vergi_no")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("id")
                         .HasName("PK__MUSTERIL__3213E83FA69A30A2");
@@ -993,49 +1023,6 @@ namespace SigortaYonetimAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("MUSTERILER", (string)null);
-                });
-
-            modelBuilder.Entity("SigortaYonetimAPI.Models.MUSTERI_ILETISIM_TERCIHLERI", b =>
-                {
-                    b.Property<int>("id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
-
-                    b.Property<bool>("arama_bildirimi")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("email_bildirimi")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime>("guncelleme_tarihi")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime")
-                        .HasDefaultValueSql("(getdate())");
-
-                    b.Property<int>("musteri_id")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("pazarlama_onayi")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("sms_bildirimi")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<bool>("whatsapp_bildirimi")
-                        .HasColumnType("bit");
-
-                    b.HasKey("id")
-                        .HasName("PK__MUSTERI___3213E83F77352483");
-
-                    b.HasIndex("musteri_id");
-
-                    b.ToTable("MUSTERI_ILETISIM_TERCIHLERI", (string)null);
                 });
 
             modelBuilder.Entity("SigortaYonetimAPI.Models.ODEMELER", b =>
@@ -2050,17 +2037,6 @@ namespace SigortaYonetimAPI.Migrations
                     b.Navigation("medeni_durum");
                 });
 
-            modelBuilder.Entity("SigortaYonetimAPI.Models.MUSTERI_ILETISIM_TERCIHLERI", b =>
-                {
-                    b.HasOne("SigortaYonetimAPI.Models.MUSTERILER", "musteri")
-                        .WithMany("MUSTERI_ILETISIM_TERCIHLERIs")
-                        .HasForeignKey("musteri_id")
-                        .IsRequired()
-                        .HasConstraintName("FK__MUSTERI_I__muste__6E01572D");
-
-                    b.Navigation("musteri");
-                });
-
             modelBuilder.Entity("SigortaYonetimAPI.Models.ODEMELER", b =>
                 {
                     b.HasOne("SigortaYonetimAPI.Models.DURUM_TANIMLARI", "durum")
@@ -2427,8 +2403,6 @@ namespace SigortaYonetimAPI.Migrations
             modelBuilder.Entity("SigortaYonetimAPI.Models.MUSTERILER", b =>
                 {
                     b.Navigation("HASAR_DOSYALARs");
-
-                    b.Navigation("MUSTERI_ILETISIM_TERCIHLERIs");
 
                     b.Navigation("ODEMELERs");
 

@@ -2,13 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="Sigorta Yönetim Platformu - Güvenli iş uygulaması"
     />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+    <meta name="application-name" content="Sigorta Yönetim Platformu" />
+    <meta name="author" content="AdaYazılım" />
+    <meta name="password-style" content="modern" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
@@ -24,7 +31,43 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>Sigorta Yönetim Platformu - AdaYazılım</title>
+    
+    <!-- Security Script -->
+    <script>
+      // Immediate password manager blocking
+      (function() {
+        'use strict';
+        
+        // Block password managers immediately
+        const style = document.createElement('style');
+        style.innerHTML = `
+          input[type="password"]::-webkit-credentials-auto-fill-button,
+          input[type="password"]::-webkit-password-reveal,
+          input[type="password"]::-webkit-reveal { 
+            display: none !important; 
+            visibility: hidden !important;
+            pointer-events: none !important;
+          }
+        `;
+        document.head.appendChild(style);
+        
+        // Override password input detection
+        Object.defineProperty(HTMLInputElement.prototype, 'type', {
+          set: function(value) {
+            if (value === 'password') {
+              this.setAttribute('data-original-type', 'password');
+              this.setAttribute('autocomplete', 'new-password');
+              this.setAttribute('data-form-type', 'other');
+            }
+            this.setAttribute('type', value);
+          },
+          get: function() {
+            return this.getAttribute('type');
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

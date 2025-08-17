@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SigortaYonetimAPI.Models;
 using SigortaYonetimAPI.Models.DTOs;
+using SigortaYonetimAPI.Services;
 
 namespace SigortaYonetimAPI.Controllers
 {
@@ -12,10 +13,14 @@ namespace SigortaYonetimAPI.Controllers
     public class PoliceTeklifleriController : ControllerBase
     {
         private readonly SigortaYonetimDbContext _context;
+        private readonly IPricingService _pricingService;
+        private readonly IPricingCalculationService _pricingCalculationService;
 
-        public PoliceTeklifleriController(SigortaYonetimDbContext context)
+        public PoliceTeklifleriController(SigortaYonetimDbContext context, IPricingService pricingService, IPricingCalculationService pricingCalculationService)
         {
             _context = context;
+            _pricingService = pricingService;
+            _pricingCalculationService = pricingCalculationService;
         }
 
         // GET: api/PoliceTeklifleri
@@ -31,6 +36,16 @@ namespace SigortaYonetimAPI.Controllers
                     .Include(t => t.olusturan_kullanici)
                     .Include(t => t.durum)
                     .AsQueryable();
+
+                // Acente kullanıcıları sadece kendi oluşturdukları teklifleri görebilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (kullaniciId > 0)
+                    {
+                        query = query.Where(t => t.olusturan_kullanici_id == kullaniciId);
+                    }
+                }
 
                 if (musteriId.HasValue)
                     query = query.Where(t => t.musteri_id == musteriId.Value);
@@ -57,11 +72,43 @@ namespace SigortaYonetimAPI.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(teklifler);
+                return Ok(new { data = teklifler });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Poliçe teklifleri listelenirken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // POST: api/PoliceTeklifleri/hesapla
+        [HttpPost("hesapla")]
+        [Authorize(Roles = "ADMIN,ACENTE")]
+        public async Task<IActionResult> Hesapla([FromBody] PoliceTeklifCreateDto request)
+        {
+            try
+            {
+                // Gerekli referansları doğrula
+                var policeTuru = await _context.POLICE_TURLERIs.FindAsync(request.police_turu_id);
+                var sigortaSirketi = await _context.SIGORTA_SIRKETLERIs.FindAsync(request.sigorta_sirketi_id);
+                if (policeTuru == null || sigortaSirketi == null)
+                    return BadRequest("Geçersiz poliçe türü veya sigorta şirketi");
+
+                // PricingCalculationService kullan
+                var fiyatRequest = new FiyatHesaplamaRequestDto
+                {
+                    PoliceTuruId = request.police_turu_id,
+                    SigortaSirketiId = request.sigorta_sirketi_id,
+                    RiskBilgileri = request.risk_bilgileri ?? "{}",
+                    TeminatBilgileri = request.teminat_bilgileri ?? "{}",
+                    MusteriId = request.musteri_id
+                };
+
+                var hesap = await _pricingCalculationService.HesaplaFiyatAsync(fiyatRequest);
+                return Ok(hesap);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Prim hesaplanırken hata oluştu: {ex.Message}" });
             }
         }
 
@@ -166,6 +213,34 @@ namespace SigortaYonetimAPI.Controllers
                 // Kullanıcı ID'sini al
                 var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "1");
 
+                // Eğer primler gönderilmemişse PricingCalculationService ile hesapla
+                decimal? brut = createDto.brut_prim;
+                decimal? net = createDto.net_prim;
+                decimal? komisyon = createDto.komisyon_tutari;
+                decimal? vergi = createDto.vergi_tutari;
+                decimal? toplam = createDto.toplam_tutar;
+
+                if (!brut.HasValue || !net.HasValue || !komisyon.HasValue || !vergi.HasValue || !toplam.HasValue)
+                {
+                    var fiyatRequest = new FiyatHesaplamaRequestDto
+                    {
+                        PoliceTuruId = createDto.police_turu_id,
+                        SigortaSirketiId = createDto.sigorta_sirketi_id,
+                        RiskBilgileri = createDto.risk_bilgileri ?? "{}",
+                        TeminatBilgileri = createDto.teminat_bilgileri ?? "{}",
+                        MusteriId = createDto.musteri_id
+                    };
+
+                    var hesap = await _pricingCalculationService.HesaplaFiyatAsync(fiyatRequest);
+                    
+                    // Brüt prim = temel prim + teminat primi
+                    brut = hesap.TemelPrim + hesap.TeminatPrimi;
+                    net = hesap.AdminNetTutar; // Admin net tutar (komisyon dahil)
+                    komisyon = hesap.KomisyonTutari;
+                    vergi = hesap.VergiTutari;
+                    toplam = hesap.MusteriToplamTutar; // Müşteriye gösterilecek tutar (komisyon dahil)
+                }
+
                 var teklif = new POLICE_TEKLIFLERI
                 {
                     teklif_no = teklifNo,
@@ -175,11 +250,11 @@ namespace SigortaYonetimAPI.Controllers
                     olusturan_kullanici_id = kullaniciId,
                     risk_bilgileri = createDto.risk_bilgileri,
                     teminat_bilgileri = createDto.teminat_bilgileri,
-                    brut_prim = createDto.brut_prim,
-                    net_prim = createDto.net_prim,
-                    komisyon_tutari = createDto.komisyon_tutari,
-                    vergi_tutari = createDto.vergi_tutari,
-                    toplam_tutar = createDto.toplam_tutar,
+                    brut_prim = brut,
+                    net_prim = net,
+                    komisyon_tutari = komisyon,
+                    vergi_tutari = vergi,
+                    toplam_tutar = toplam,
                     durum_id = bekleyenDurumId,
                     teklif_tarihi = DateTime.Now,
                     gecerlilik_tarihi = DateTime.Now.AddDays(30), // 30 gün geçerli
@@ -207,10 +282,60 @@ namespace SigortaYonetimAPI.Controllers
         {
             try
             {
+                var teklif = await _context.POLICE_TEKLIFLERIs.FindAsync(id);
+                if (teklif == null)
+                {
+                    return NotFound("Poliçe teklifi bulunamadı");
+                }
+
+                // Acente kullanıcıları sadece kendi oluşturdukları teklifleri onaylayabilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (teklif.olusturan_kullanici_id != kullaniciId)
+                    {
+                        return Forbid("Bu teklifi onaylama yetkiniz yok");
+                    }
+                }
+
+                // Onaylandı durum ID'si
+                var onaylandiDurumId = _context.DURUM_TANIMLARIs
+                    .FirstOrDefault(d => d.tablo_adi == "POLICE_TEKLIFLERI" && d.deger_kodu == "ONAYLANDI")?.id ?? 2;
+
+                teklif.durum_id = onaylandiDurumId;
+                teklif.onay_tarihi = DateTime.Now;
+                teklif.onaylayan_kullanici = User.Identity?.Name;
+                teklif.guncelleme_tarihi = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                // Müşteriye bildirim gönder
+                await SendNotificationToCustomer(teklif.musteri_id, $"Poliçe teklifi {teklif.teklif_no} onaylandı.");
+
+                return Ok(new { message = "Poliçe teklifi onaylandı", teklif_no = teklif.teklif_no });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Poliçe teklifi onaylanırken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // PUT: api/PoliceTeklifleri/5/musteri-onayla
+        [HttpPut("{id}/musteri-onayla")]
+        [Authorize(Roles = "KULLANICI")]
+        public async Task<IActionResult> MusteriOnaylaTeklif(int id)
+        {
+            try
+            {
+                // Kullanıcının müşteri ID'sini al
+                var kullaniciId = User.FindFirst("KullanicilarId")?.Value;
+                if (string.IsNullOrEmpty(kullaniciId))
+                {
+                    return BadRequest("Kullanıcı bilgisi bulunamadı");
+                }
+
                 var teklif = await _context.POLICE_TEKLIFLERIs
                     .Include(t => t.musteri)
-                    .Include(t => t.police_turu)
-                    .Include(t => t.sigorta_sirketi)
                     .FirstOrDefaultAsync(t => t.id == id);
 
                 if (teklif == null)
@@ -218,29 +343,30 @@ namespace SigortaYonetimAPI.Controllers
                     return NotFound("Poliçe teklifi bulunamadı");
                 }
 
-                // Onaylanmış durum ID'si
-                var onaylanmisDurumId = _context.DURUM_TANIMLARIs
+                // Müşterinin kendi teklifini onayladığından emin ol
+                var musteri = await _context.MUSTERILERs
+                    .FirstOrDefaultAsync(m => m.kullanici_id == int.Parse(kullaniciId));
+                
+                if (musteri == null || teklif.musteri_id != musteri.id)
+                {
+                    return Forbid("Bu teklifi onaylama yetkiniz yok");
+                }
+
+                // Onaylandı durum ID'si
+                var onaylandiDurumId = _context.DURUM_TANIMLARIs
                     .FirstOrDefault(d => d.tablo_adi == "POLICE_TEKLIFLERI" && d.deger_kodu == "ONAYLANDI")?.id ?? 2;
 
-                teklif.durum_id = onaylanmisDurumId;
+                teklif.durum_id = onaylandiDurumId;
                 teklif.onay_tarihi = DateTime.Now;
-                teklif.onaylayan_kullanici = User.Identity?.Name ?? "System";
+                teklif.onaylayan_kullanici = $"{musteri.ad} {musteri.soyad}";
                 teklif.guncelleme_tarihi = DateTime.Now;
 
                 await _context.SaveChangesAsync();
 
-                // Müşteriye bildirim gönder
-                await SendNotificationToCustomer(teklif.musteri_id, 
-                    $"Poliçe teklifiniz onaylandı! Teklif No: {teklif.teklif_no}");
+                // Acente'ye bildirim gönder
+                await SendNotificationToAcente(teklif.olusturan_kullanici_id, $"Müşteri {musteri.ad} {musteri.soyad} poliçe teklifi {teklif.teklif_no} onayladı.");
 
-                return Ok(new { 
-                    message = "Poliçe teklifi onaylandı", 
-                    teklif_no = teklif.teklif_no,
-                    musteri_adi = ($"{teklif.musteri.ad} {teklif.musteri.soyad}").Trim(),
-                    police_turu = teklif.police_turu.urun_adi,
-                    sigorta_sirketi = teklif.sigorta_sirketi.sirket_adi,
-                    toplam_tutar = teklif.toplam_tutar
-                });
+                return Ok(new { message = "Poliçe teklifi onaylandı", teklif_no = teklif.teklif_no });
             }
             catch (Exception ex)
             {
@@ -261,6 +387,16 @@ namespace SigortaYonetimAPI.Controllers
                     return NotFound("Poliçe teklifi bulunamadı");
                 }
 
+                // Acente kullanıcıları sadece kendi oluşturdukları teklifleri reddedebilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (teklif.olusturan_kullanici_id != kullaniciId)
+                    {
+                        return Forbid("Bu teklifi reddetme yetkiniz yok");
+                    }
+                }
+
                 // Reddedildi durum ID'si
                 var reddedildiDurumId = _context.DURUM_TANIMLARIs
                     .FirstOrDefault(d => d.tablo_adi == "POLICE_TEKLIFLERI" && d.deger_kodu == "REDDEDILDI")?.id ?? 3;
@@ -276,6 +412,222 @@ namespace SigortaYonetimAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"Poliçe teklifi reddedilirken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // PUT: api/PoliceTeklifleri/5/musteri-reddet
+        [HttpPut("{id}/musteri-reddet")]
+        [Authorize(Roles = "KULLANICI")]
+        public async Task<IActionResult> MusteriReddetTeklif(int id, [FromBody] string redNedeni)
+        {
+            try
+            {
+                // Kullanıcının müşteri ID'sini al
+                var kullaniciId = User.FindFirst("KullanicilarId")?.Value;
+                if (string.IsNullOrEmpty(kullaniciId))
+                {
+                    return BadRequest("Kullanıcı bilgisi bulunamadı");
+                }
+
+                var teklif = await _context.POLICE_TEKLIFLERIs
+                    .Include(t => t.musteri)
+                    .FirstOrDefaultAsync(t => t.id == id);
+
+                if (teklif == null)
+                {
+                    return NotFound("Poliçe teklifi bulunamadı");
+                }
+
+                // Müşterinin kendi teklifini reddettiğinden emin ol
+                var musteri = await _context.MUSTERILERs
+                    .FirstOrDefaultAsync(m => m.kullanici_id == int.Parse(kullaniciId));
+                
+                if (musteri == null || teklif.musteri_id != musteri.id)
+                {
+                    return Forbid("Bu teklifi reddetme yetkiniz yok");
+                }
+
+                // Reddedildi durum ID'si
+                var reddedildiDurumId = _context.DURUM_TANIMLARIs
+                    .FirstOrDefault(d => d.tablo_adi == "POLICE_TEKLIFLERI" && d.deger_kodu == "REDDEDILDI")?.id ?? 3;
+
+                teklif.durum_id = reddedildiDurumId;
+                teklif.red_nedeni = redNedeni;
+                teklif.guncelleme_tarihi = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                // Acente'ye bildirim gönder
+                await SendNotificationToAcente(teklif.olusturan_kullanici_id, $"Müşteri {musteri.ad} {musteri.soyad} poliçe teklifi {teklif.teklif_no} reddetti. Nedeni: {redNedeni}");
+
+                return Ok(new { message = "Poliçe teklifi reddedildi", teklif_no = teklif.teklif_no });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Poliçe teklifi reddedilirken hata oluştu: {ex.Message}");
+            }
+        }
+
+
+
+
+
+        // Onaylanan teklifi poliçeye çevir
+        [HttpPost("{id}/police-olustur")]
+        public async Task<IActionResult> PoliceOlustur(int id)
+        {
+            try
+            {
+                var teklif = await _context.POLICE_TEKLIFLERIs
+                    .Include(t => t.musteri)
+                    .Include(t => t.police_turu)
+                    .Include(t => t.sigorta_sirketi)
+                    .Include(t => t.durum)
+                    .FirstOrDefaultAsync(t => t.id == id);
+
+                if (teklif == null)
+                    return NotFound("Teklif bulunamadı");
+
+                // Teklif onaylanmış mı kontrolü
+                if (teklif.durum.deger_kodu != "ONAYLANDI")
+                    return BadRequest("Sadece onaylanmış teklifler poliçeye çevrilebilir");
+
+                // Aktif durum
+                var aktifDurum = await _context.DURUM_TANIMLARIs
+                    .FirstOrDefaultAsync(d => d.tablo_adi == "POLISELER" && d.deger_kodu == "AKTIF");
+
+                if (aktifDurum == null)
+                    return StatusCode(500, "Aktif durumu bulunamadı");
+
+                // Poliçe numarası oluştur
+                var policeNo = await GeneratePoliceNo();
+
+                // Poliçe oluştur
+                var police = new POLISELER
+                {
+                    police_no = policeNo,
+                    teklif_id = teklif.id,
+                    musteri_id = teklif.musteri_id,
+                    police_turu_id = teklif.police_turu_id,
+                    sigorta_sirketi_id = teklif.sigorta_sirketi_id,
+                    tanzim_eden_kullanici_id = teklif.olusturan_kullanici_id,
+                    risk_bilgileri = teklif.risk_bilgileri,
+                    teminat_bilgileri = teklif.teminat_bilgileri,
+                    brut_prim = teklif.brut_prim,
+                    net_prim = teklif.net_prim,
+                    komisyon_tutari = teklif.komisyon_tutari,
+                    vergi_tutari = teklif.vergi_tutari,
+                    toplam_tutar = teklif.toplam_tutar,
+                    taksit_sayisi = teklif.taksit_sayisi,
+                    durum_id = aktifDurum.id,
+                    baslangic_tarihi = DateTime.Now,
+                    bitis_tarihi = DateTime.Now.AddYears(1), // Varsayılan 1 yıl
+                    tanzim_tarihi = DateTime.Now,
+                    guncelleme_tarihi = DateTime.Now
+                };
+
+                _context.POLISELERs.Add(police);
+                await _context.SaveChangesAsync();
+
+                // Müşteriye bildirim gönder
+                await SendNotificationToCustomer(teklif.musteri_id, 
+                    $"Poliçeniz oluşturuldu! Poliçe No: {police.police_no}");
+
+                return Ok(new { 
+                    message = "Poliçe başarıyla oluşturuldu",
+                    police_no = police.police_no,
+                    teklif_no = teklif.teklif_no
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Poliçe oluşturulurken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // PUT: api/PoliceTeklifleri/5
+        [HttpPut("{id}")]
+        [Authorize(Roles = "ADMIN,ACENTE")]
+        public async Task<IActionResult> UpdatePoliceTeklifi(int id, [FromBody] PoliceTeklifUpdateDto updateDto)
+        {
+            try
+            {
+                var teklif = await _context.POLICE_TEKLIFLERIs.FindAsync(id);
+                if (teklif == null)
+                    return NotFound("Poliçe teklifi bulunamadı");
+
+                // ACENTE sadece kendi tekliflerini güncelleyebilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (teklif.olusturan_kullanici_id != kullaniciId)
+                        return Forbid("Bu teklifi güncelleme yetkiniz yok");
+                }
+
+                // İlişkili kayıt kontrolleri
+                if (!await _context.MUSTERILERs.AnyAsync(m => m.id == updateDto.musteri_id))
+                    return BadRequest("Müşteri bulunamadı");
+                if (!await _context.POLICE_TURLERIs.AnyAsync(p => p.id == updateDto.police_turu_id))
+                    return BadRequest("Poliçe türü bulunamadı");
+                if (!await _context.SIGORTA_SIRKETLERIs.AnyAsync(s => s.id == updateDto.sigorta_sirketi_id))
+                    return BadRequest("Sigorta şirketi bulunamadı");
+
+                teklif.musteri_id = updateDto.musteri_id;
+                teklif.police_turu_id = updateDto.police_turu_id;
+                teklif.sigorta_sirketi_id = updateDto.sigorta_sirketi_id;
+                teklif.risk_bilgileri = updateDto.risk_bilgileri;
+                teklif.teminat_bilgileri = updateDto.teminat_bilgileri;
+                teklif.brut_prim = updateDto.brut_prim;
+                teklif.net_prim = updateDto.net_prim;
+                teklif.komisyon_tutari = updateDto.komisyon_tutari;
+                teklif.vergi_tutari = updateDto.vergi_tutari;
+                teklif.toplam_tutar = updateDto.toplam_tutar;
+                teklif.notlar = updateDto.notlar;
+                teklif.guncelleme_tarihi = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Teklif güncellendi" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Poliçe teklifi güncellenirken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/PoliceTeklifleri/5
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "ADMIN,ACENTE")]
+        public async Task<IActionResult> DeletePoliceTeklifi(int id)
+        {
+            try
+            {
+                var teklif = await _context.POLICE_TEKLIFLERIs
+                    .Include(t => t.POLISELERs)
+                    .FirstOrDefaultAsync(t => t.id == id);
+                if (teklif == null)
+                    return NotFound(new { message = "Poliçe teklifi bulunamadı" });
+
+                // ACENTE sadece kendi tekliflerini silebilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (teklif.olusturan_kullanici_id != kullaniciId)
+                        return Forbid("Bu teklifi silme yetkiniz yok");
+                }
+
+                // Poliçeye dönüştürülmüş teklif silinemez
+                if (teklif.POLISELERs != null && teklif.POLISELERs.Any())
+                {
+                    return BadRequest(new { message = "Poliçeye dönüştürülmüş teklifler silinemez" });
+                }
+
+                _context.POLICE_TEKLIFLERIs.Remove(teklif);
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Teklif silindi" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Poliçe teklifi silinirken hata oluştu: {ex.Message}" });
             }
         }
 
@@ -316,56 +668,123 @@ namespace SigortaYonetimAPI.Controllers
             }
         }
 
+        // GET: api/PoliceTeklifleri/acente-istatistikler
+        [HttpGet("acente-istatistikler")]
+        [Authorize(Roles = "ACENTE")]
+        public async Task<IActionResult> GetAcenteIstatistikleri()
+        {
+            try
+            {
+                var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                if (kullaniciId == 0)
+                {
+                    return BadRequest("Kullanıcı bilgisi bulunamadı");
+                }
+
+                var bugun = DateTime.Today;
+                var buAy = new DateTime(bugun.Year, bugun.Month, 1);
+
+                var istatistikler = await _context.POLICE_TEKLIFLERIs
+                    .Where(t => t.olusturan_kullanici_id == kullaniciId)
+                    .GroupBy(t => 1)
+                    .Select(g => new
+                    {
+                        toplam_teklif_sayisi = g.Count(),
+                        bekleyen_teklif_sayisi = g.Count(t => t.durum.deger_kodu == "BEKLEMEDE"),
+                        onaylanan_teklif_sayisi = g.Count(t => t.durum.deger_kodu == "ONAYLANDI"),
+                        reddedilen_teklif_sayisi = g.Count(t => t.durum.deger_kodu == "REDDEDILDI"),
+                        bu_ay_teklif_sayisi = g.Count(t => t.teklif_tarihi >= buAy),
+                        toplam_prim_tutari = g.Sum(t => t.toplam_tutar ?? 0),
+                        bu_ay_prim_tutari = g.Where(t => t.teklif_tarihi >= buAy).Sum(t => t.toplam_tutar ?? 0),
+                        ortalama_teklif_tutari = g.Average(t => t.toplam_tutar ?? 0)
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (istatistikler == null)
+                {
+                    istatistikler = new
+                    {
+                        toplam_teklif_sayisi = 0,
+                        bekleyen_teklif_sayisi = 0,
+                        onaylanan_teklif_sayisi = 0,
+                        reddedilen_teklif_sayisi = 0,
+                        bu_ay_teklif_sayisi = 0,
+                        toplam_prim_tutari = 0m,
+                        bu_ay_prim_tutari = 0m,
+                        ortalama_teklif_tutari = 0m
+                    };
+                }
+
+                return Ok(istatistikler);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Acente istatistikleri alınırken hata oluştu: {ex.Message}");
+            }
+        }
+
         private async Task<string> GenerateTeklifNo()
         {
-            var yil = DateTime.Now.Year.ToString();
-            var prefix = $"TEK{yil}";
+            var today = DateTime.Now.ToString("yyyyMMdd");
+            var count = await _context.POLICE_TEKLIFLERIs
+                .Where(t => t.teklif_no.StartsWith($"TKF{today}"))
+                .CountAsync();
             
-            var sonNo = await _context.POLICE_TEKLIFLERIs
-                .Where(t => t.teklif_no.StartsWith(prefix))
-                .Select(t => t.teklif_no)
-                .OrderByDescending(t => t)
-                .FirstOrDefaultAsync();
+            return $"TKF{today}{(count + 1):D4}";
+        }
 
-            int siradakiNo = 1;
-            if (!string.IsNullOrEmpty(sonNo))
-            {
-                var noKismi = sonNo.Substring(prefix.Length);
-                if (int.TryParse(noKismi, out int mevcutNo))
-                {
-                    siradakiNo = mevcutNo + 1;
-                }
-            }
-
-            return $"{prefix}{siradakiNo:D6}"; // TEK2024000001 formatı
+        private async Task<string> GeneratePoliceNo()
+        {
+            var today = DateTime.Now.ToString("yyyyMMdd");
+            var count = await _context.POLISELERs
+                .Where(p => p.police_no.StartsWith($"PLC{today}"))
+                .CountAsync();
+            
+            return $"PLC{today}{(count + 1):D4}";
         }
 
         private async Task SendNotificationToCustomer(int musteriId, string message)
         {
             try
             {
-                var musteri = await _context.MUSTERILERs
-                    .Include(m => m.kullanici)
-                    .FirstOrDefaultAsync(m => m.id == musteriId);
-
-                if (musteri?.kullanici != null)
+                var bildirim = new BILDIRIMLER
                 {
-                    var bildirim = new BILDIRIMLER
-                    {
-                        alici_kullanici_id = musteri.kullanici.id,
-                        baslik = "Poliçe Teklifi Güncellemesi",
-                        icerik = message,
-                        gonderim_tarihi = DateTime.Now,
-                        okundu_mu = false
-                    };
+                    musteri_id = musteriId,
+                    baslik = "Poliçe Teklifi",
+                    icerik = message,
+                    okundu_mu = false,
+                    gonderim_tarihi = DateTime.Now
+                };
 
-                    _context.BILDIRIMLERs.Add(bildirim);
-                    await _context.SaveChangesAsync();
-                }
+                _context.BILDIRIMLERs.Add(bildirim);
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                // Bildirim gönderilemese bile ana işlem devam etsin
+                // Bildirim gönderilemese bile işlem devam etsin
+                Console.WriteLine($"Bildirim gönderilemedi: {ex.Message}");
+            }
+        }
+
+        private async Task SendNotificationToAcente(int kullaniciId, string message)
+        {
+            try
+            {
+                var bildirim = new BILDIRIMLER
+                {
+                    alici_kullanici_id = kullaniciId,
+                    baslik = "Poliçe Teklifi",
+                    icerik = message,
+                    okundu_mu = false,
+                    gonderim_tarihi = DateTime.Now
+                };
+
+                _context.BILDIRIMLERs.Add(bildirim);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                // Bildirim gönderilemese bile işlem devam etsin
                 Console.WriteLine($"Bildirim gönderilemedi: {ex.Message}");
             }
         }

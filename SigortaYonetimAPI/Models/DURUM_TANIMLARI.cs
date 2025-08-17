@@ -15,6 +15,11 @@ public partial class DURUM_TANIMLARI
 
     public string deger_aciklama { get; set; } = null!;
 
+    // Veritabanında olmayan alanlar - yoruma alındı
+    // public string? tanim { get; set; }
+    // public string? grup { get; set; }
+    // public int? ust_id { get; set; }
+
     public int siralama { get; set; }
 
     public bool aktif_mi { get; set; }
@@ -39,11 +44,9 @@ public partial class DURUM_TANIMLARI
 
     public virtual ICollection<DOKUMANLAR> DOKUMANLARkategoris { get; set; } = new List<DOKUMANLAR>();
 
-    public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARdurums { get; set; } = new List<HASAR_DOSYALAR>();
 
-    public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARolay_tipis { get; set; } = new List<HASAR_DOSYALAR>();
 
-    public virtual ICollection<HASAR_TAKIP_NOTLARI> HASAR_TAKIP_NOTLARIs { get; set; } = new List<HASAR_TAKIP_NOTLARI>();
+    // public virtual ICollection<HASAR_TAKIP_NOTLARI> HASAR_TAKIP_NOTLARIs { get; set; } = new List<HASAR_TAKIP_NOTLARI>();
 
     public virtual ICollection<KOMISYON_HESAPLARI> KOMISYON_HESAPLARIs { get; set; } = new List<KOMISYON_HESAPLARI>();
 
@@ -65,9 +68,7 @@ public partial class DURUM_TANIMLARI
 
     public virtual ICollection<POLICE_TEKLIFLERI> POLICE_TEKLIFLERIs { get; set; } = new List<POLICE_TEKLIFLERI>();
 
-    public virtual ICollection<POLICE_TURLERI> POLICE_TURLERIalt_kategoris { get; set; } = new List<POLICE_TURLERI>();
 
-    public virtual ICollection<POLICE_TURLERI> POLICE_TURLERIkategoris { get; set; } = new List<POLICE_TURLERI>();
 
     public virtual ICollection<POLISELER> POLISELERs { get; set; } = new List<POLISELER>();
 

@@ -39,6 +39,8 @@ public partial class POLISELER
 
     public int? taksit_sayisi { get; set; }
 
+    public string? odeme_yontemi { get; set; }
+
     public int durum_id { get; set; }
 
     public string? iptal_nedeni { get; set; }
@@ -53,6 +55,8 @@ public partial class POLISELER
 
     public DateTime tanzim_tarihi { get; set; }
 
+    public DateTime olusturma_tarihi { get; set; }
+
     public DateTime guncelleme_tarihi { get; set; }
 
     public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARs { get; set; } = new List<HASAR_DOSYALAR>();
@@ -62,6 +66,8 @@ public partial class POLISELER
     public virtual ICollection<ODEMELER> ODEMELERs { get; set; } = new List<ODEMELER>();
 
     public virtual ICollection<TAKSITLER> TAKSITLERs { get; set; } = new List<TAKSITLER>();
+
+    public virtual ICollection<POLICE_TEMINATLAR> POLICE_TEMINATLARs { get; set; } = new List<POLICE_TEMINATLAR>();
 
     public virtual DURUM_TANIMLARI durum { get; set; } = null!;
 

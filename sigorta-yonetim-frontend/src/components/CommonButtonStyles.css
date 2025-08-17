@@ -1,0 +1,734 @@
+/* ===== ORTAK CRUD BUTON STİLLERİ ===== */
+/* Tüm modüller için tutarlı buton tasarımı */
+
+/* Genel Buton Container */
+.crud-actions,
+.action-buttons,
+.payment-actions,
+.customer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Standart CRUD Buton Stilleri */
+.crud-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  min-width: 32px;
+  height: 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.crud-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.crud-btn:hover::before {
+  left: 100%;
+}
+
+.crud-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  filter: brightness(1.1);
+}
+
+.crud-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.crud-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* CRUD Buton Renkleri */
+.crud-btn.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+}
+
+.crud-btn.btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.crud-btn.btn-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(40, 167, 69, 0.3);
+}
+
+.crud-btn.btn-success:hover {
+  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  box-shadow: 0 5px 20px rgba(40, 167, 69, 0.4);
+}
+
+.crud-btn.btn-warning {
+  background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(253, 126, 20, 0.3);
+}
+
+.crud-btn.btn-warning:hover {
+  background: linear-gradient(135deg, #e55a00 0%, #cc4a00 100%);
+  box-shadow: 0 5px 20px rgba(253, 126, 20, 0.4);
+}
+
+.crud-btn.btn-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+}
+
+.crud-btn.btn-danger:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+  box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+}
+
+.crud-btn.btn-info {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(23, 162, 184, 0.3);
+}
+
+.crud-btn.btn-info:hover {
+  background: linear-gradient(135deg, #138496 0%, #0c5460 100%);
+  box-shadow: 0 5px 20px rgba(23, 162, 184, 0.4);
+}
+
+.crud-btn.btn-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(108, 117, 125, 0.3);
+}
+
+.crud-btn.btn-secondary:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+  box-shadow: 0 5px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* Küçük Buton Varyantı */
+.crud-btn.btn-sm {
+  padding: 6px 12px;
+  font-size: 11px;
+  min-width: 28px;
+  height: 28px;
+  gap: 4px;
+}
+
+/* Büyük Buton Varyantı */
+.crud-btn.btn-lg {
+  padding: 12px 24px;
+  font-size: 14px;
+  min-width: 40px;
+  height: 40px;
+  gap: 8px;
+}
+
+/* İkon Buton Varyantı */
+.crud-btn.btn-icon {
+  padding: 8px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+}
+
+.crud-btn.btn-icon.btn-sm {
+  padding: 6px;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.crud-btn.btn-icon.btn-lg {
+  padding: 12px;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+}
+
+/* Buton İkonları - Standart İkon Stilleri */
+.crud-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s ease;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.crud-btn.btn-sm svg {
+  width: 12px;
+  height: 12px;
+}
+
+.crud-btn.btn-lg svg {
+  width: 16px;
+  height: 16px;
+}
+
+.crud-btn:hover svg {
+  transform: scale(1.1);
+}
+
+/* Buton İçerik Standartları */
+.crud-btn .btn-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: inherit;
+}
+
+.crud-btn .btn-icon-left {
+  margin-right: 4px;
+}
+
+.crud-btn .btn-icon-right {
+  margin-left: 4px;
+}
+
+/* Standart Buton İçerikleri */
+.crud-btn[data-action="add"]::before {
+  content: "➕ ";
+}
+
+.crud-btn[data-action="edit"]::before {
+  content: "✏️ ";
+}
+
+.crud-btn[data-action="delete"]::before {
+  content: "🗑️ ";
+}
+
+.crud-btn[data-action="save"]::before {
+  content: "💾 ";
+}
+
+.crud-btn[data-action="cancel"]::before {
+  content: "❌ ";
+}
+
+.crud-btn[data-action="view"]::before {
+  content: "👁️ ";
+}
+
+.crud-btn[data-action="download"]::before {
+  content: "⬇️ ";
+}
+
+.crud-btn[data-action="upload"]::before {
+  content: "⬆️ ";
+}
+
+.crud-btn[data-action="print"]::before {
+  content: "🖨️ ";
+}
+
+.crud-btn[data-action="export"]::before {
+  content: "📤 ";
+}
+
+.crud-btn[data-action="import"]::before {
+  content: "📥 ";
+}
+
+.crud-btn[data-action="search"]::before {
+  content: "🔍 ";
+}
+
+.crud-btn[data-action="filter"]::before {
+  content: "🔧 ";
+}
+
+.crud-btn[data-action="refresh"]::before {
+  content: "🔄 ";
+}
+
+.crud-btn[data-action="settings"]::before {
+  content: "⚙️ ";
+}
+
+.crud-btn[data-action="help"]::before {
+  content: "❓ ";
+}
+
+.crud-btn[data-action="info"]::before {
+  content: "ℹ️ ";
+}
+
+.crud-btn[data-action="warning"]::before {
+  content: "⚠️ ";
+}
+
+.crud-btn[data-action="error"]::before {
+  content: "🚨 ";
+}
+
+.crud-btn[data-action="success"]::before {
+  content: "✅ ";
+}
+
+/* Responsive Buton Düzeni */
+@media (max-width: 768px) {
+  .crud-actions,
+  .action-buttons,
+  .payment-actions,
+  .customer-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .crud-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-width: 28px;
+    height: 28px;
+  }
+  
+  .crud-btn.btn-lg {
+    padding: 10px 20px;
+    font-size: 13px;
+    min-width: 36px;
+    height: 36px;
+  }
+}
+
+/* ===== GERİYE UYUMLULUK ===== */
+/* Eski buton sınıfları için standart stiller */
+
+/* ===== GERİYE UYUMLULUK ===== */
+/* Eski buton sınıfları için standart stiller */
+
+/* Eski buton stilleri - Geriye uyumluluk için */
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.btn-warning,
+.btn-danger,
+.btn-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  min-width: 32px;
+  height: 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.btn-primary::before,
+.btn-secondary::before,
+.btn-success::before,
+.btn-warning::before,
+.btn-danger::before,
+.btn-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before,
+.btn-secondary:hover::before,
+.btn-success:hover::before,
+.btn-warning:hover::before,
+.btn-danger:hover::before,
+.btn-info:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-success:hover,
+.btn-warning:hover,
+.btn-danger:hover,
+.btn-info:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  filter: brightness(1.1);
+}
+
+.btn-primary:active,
+.btn-secondary:active,
+.btn-success:active,
+.btn-warning:active,
+.btn-danger:active,
+.btn-info:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-success:disabled,
+.btn-warning:disabled,
+.btn-danger:disabled,
+.btn-info:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Eski buton renkleri */
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(40, 167, 69, 0.3);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  box-shadow: 0 5px 20px rgba(40, 167, 69, 0.4);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(253, 126, 20, 0.3);
+}
+
+.btn-warning:hover {
+  background: linear-gradient(135deg, #e55a00 0%, #cc4a00 100%);
+  box-shadow: 0 5px 20px rgba(253, 126, 20, 0.4);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+  box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+}
+
+.btn-info {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(23, 162, 184, 0.3);
+}
+
+.btn-info:hover {
+  background: linear-gradient(135deg, #138496 0%, #0c5460 100%);
+  box-shadow: 0 5px 20px rgba(23, 162, 184, 0.4);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+  box-shadow: 0 5px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* Eski action-btn-small stilleri - Geriye uyumluluk için */
+.action-btn-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  min-width: 28px;
+  height: 28px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.action-btn-small::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.action-btn-small:hover::before {
+  left: 100%;
+}
+
+.action-btn-small:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  filter: brightness(1.1);
+}
+
+.action-btn-small.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+}
+
+.action-btn-small.primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn-small.warning {
+  background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(253, 126, 20, 0.3);
+}
+
+.action-btn-small.warning:hover {
+  background: linear-gradient(135deg, #e55a00 0%, #cc4a00 100%);
+  box-shadow: 0 5px 20px rgba(253, 126, 20, 0.4);
+}
+
+.action-btn-small.danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+}
+
+.action-btn-small.danger:hover {
+  background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+  box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+}
+
+.action-btn-small.success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(40, 167, 69, 0.3);
+}
+
+.action-btn-small.success:hover {
+  background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+  box-shadow: 0 5px 20px rgba(40, 167, 69, 0.4);
+}
+
+.action-btn-small.info {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(23, 162, 184, 0.3);
+}
+
+.action-btn-small.info:hover {
+  background: linear-gradient(135deg, #138496 0%, #0c5460 100%);
+  box-shadow: 0 5px 20px rgba(23, 162, 184, 0.4);
+}
+
+.action-btn-small.secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  box-shadow: 0 3px 12px rgba(108, 117, 125, 0.3);
+}
+
+.action-btn-small.secondary:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+  box-shadow: 0 5px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* ===== STANDART BUTON İÇERİKLERİ ===== */
+/* Kurumsal standartlar için önceden tanımlı buton içerikleri */
+
+/* Standart CRUD İşlemleri */
+.crud-btn[data-action="add"] .btn-text::before {
+  content: "➕ ";
+}
+
+.crud-btn[data-action="edit"] .btn-text::before {
+  content: "✏️ ";
+}
+
+.crud-btn[data-action="delete"] .btn-text::before {
+  content: "🗑️ ";
+}
+
+.crud-btn[data-action="save"] .btn-text::before {
+  content: "💾 ";
+}
+
+.crud-btn[data-action="cancel"] .btn-text::before {
+  content: "❌ ";
+}
+
+.crud-btn[data-action="view"] .btn-text::before {
+  content: "👁️ ";
+}
+
+/* Dosya İşlemleri */
+.crud-btn[data-action="download"] .btn-text::before {
+  content: "⬇️ ";
+}
+
+.crud-btn[data-action="upload"] .btn-text::before {
+  content: "⬆️ ";
+}
+
+.crud-btn[data-action="print"] .btn-text::before {
+  content: "🖨️ ";
+}
+
+.crud-btn[data-action="export"] .btn-text::before {
+  content: "📤 ";
+}
+
+.crud-btn[data-action="import"] .btn-text::before {
+  content: "📥 ";
+}
+
+/* Arama ve Filtreleme */
+.crud-btn[data-action="search"] .btn-text::before {
+  content: "🔍 ";
+}
+
+.crud-btn[data-action="filter"] .btn-text::before {
+  content: "🔧 ";
+}
+
+.crud-btn[data-action="refresh"] .btn-text::before {
+  content: "🔄 ";
+}
+
+/* Sistem İşlemleri */
+.crud-btn[data-action="settings"] .btn-text::before {
+  content: "⚙️ ";
+}
+
+.crud-btn[data-action="help"] .btn-text::before {
+  content: "❓ ";
+}
+
+.crud-btn[data-action="info"] .btn-text::before {
+  content: "ℹ️ ";
+}
+
+.crud-btn[data-action="warning"] .btn-text::before {
+  content: "⚠️ ";
+}
+
+.crud-btn[data-action="error"] .btn-text::before {
+  content: "🚨 ";
+}
+
+.crud-btn[data-action="success"] .btn-text::before {
+  content: "✅ ";
+}
+
+/* ===== BUTON KULLANIM ÖRNEKLERİ ===== */
+/*
+Kullanım örnekleri:
+
+1. Temel CRUD butonları:
+<button className="crud-btn btn-primary" data-action="add">Ekle</button>
+<button className="crud-btn btn-warning" data-action="edit">Düzenle</button>
+<button className="crud-btn btn-danger" data-action="delete">Sil</button>
+<button className="crud-btn btn-success" data-action="save">Kaydet</button>
+
+2. Küçük butonlar:
+<button className="crud-btn btn-sm btn-primary" data-action="add">Ekle</button>
+<button className="crud-btn btn-sm btn-warning" data-action="edit">Düzenle</button>
+
+3. İkon butonları:
+<button className="crud-btn btn-icon btn-primary" data-action="add" title="Ekle">
+  <span className="btn-text">Ekle</span>
+</button>
+
+4. Buton grupları:
+<div className="crud-actions">
+  <button className="crud-btn btn-primary" data-action="add">Ekle</button>
+  <button className="crud-btn btn-warning" data-action="edit">Düzenle</button>
+  <button className="crud-btn btn-danger" data-action="delete">Sil</button>
+</div>
+
+5. Standart buton içerikleri:
+- data-action="add" → ➕ Ekle
+- data-action="edit" → ✏️ Düzenle  
+- data-action="delete" → 🗑️ Sil
+- data-action="save" → 💾 Kaydet
+- data-action="cancel" → ❌ İptal
+- data-action="view" → 👁️ Görüntüle
+- data-action="download" → ⬇️ İndir
+- data-action="upload" → ⬆️ Yükle
+- data-action="print" → 🖨️ Yazdır
+- data-action="export" → 📤 Dışa Aktar
+- data-action="import" → 📥 İçe Aktar
+- data-action="search" → 🔍 Ara
+- data-action="filter" → 🔧 Filtrele
+- data-action="refresh" → 🔄 Yenile
+- data-action="settings" → ⚙️ Ayarlar
+- data-action="help" → ❓ Yardım
+- data-action="info" → ℹ️ Bilgi
+- data-action="warning" → ⚠️ Uyarı
+- data-action="error" → 🚨 Hata
+- data-action="success" → ✅ Başarılı
+*/

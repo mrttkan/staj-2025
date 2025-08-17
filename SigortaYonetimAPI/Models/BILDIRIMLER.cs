@@ -9,19 +9,29 @@ public partial class BILDIRIMLER
 
     public int alici_kullanici_id { get; set; }
 
+    public int? musteri_id { get; set; }
+
+    public int? kullanici_id { get; set; }
+
     public int? bildirim_tipi_id { get; set; }
 
     public string baslik { get; set; } = null!;
 
     public string icerik { get; set; } = null!;
 
+    public string? mesaj { get; set; }
+
     public int? oncelik_id { get; set; }
 
     public bool? okundu_mu { get; set; }
 
+    public bool? okundu_mi { get; set; }
+
     public DateTime gonderim_tarihi { get; set; }
 
     public DateTime? okunma_tarihi { get; set; }
+
+    public DateTime? olusturma_tarihi { get; set; }
 
     public int durum_id { get; set; }
 

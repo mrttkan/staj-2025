@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SigortaYonetimAPI.Models;
 using SigortaYonetimAPI.Models.DTOs;
+using System.Security.Claims;
 
 namespace SigortaYonetimAPI.Controllers
 {
@@ -66,11 +67,52 @@ namespace SigortaYonetimAPI.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(poliseler);
+                return Ok(new { data = poliseler });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Poliçeler listelenirken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // GET: api/Poliseler/MusteriPoliseleri
+        [HttpGet("MusteriPoliseleri")]
+        public async Task<IActionResult> GetMusteriPoliseleri()
+        {
+            try
+            {
+                var musteriId = GetCurrentMusteriId();
+                if (musteriId == 0)
+                    return Unauthorized(new { message = "Müşteri bilgisi bulunamadı" });
+
+                var poliseler = await _context.POLISELERs
+                    .Where(p => p.musteri_id == musteriId)
+                    .Include(p => p.police_turu)
+                    .Include(p => p.sigorta_sirketi)
+                    .Include(p => p.durum)
+                    .Include(p => p.teklif)
+                    .OrderByDescending(p => p.tanzim_tarihi)
+                    .Select(p => new MusteriPoliceListDto
+                    {
+                        id = p.id,
+                        police_no = p.police_no,
+                        police_turu_adi = p.police_turu.urun_adi,
+                        sigorta_sirketi_adi = p.sigorta_sirketi.sirket_adi,
+                        baslangic_tarihi = p.baslangic_tarihi,
+                        bitis_tarihi = p.bitis_tarihi,
+                        toplam_tutar = p.toplam_tutar ?? 0,
+                        durum_adi = p.durum.deger_aciklama,
+                        durum_id = p.durum_id,
+                        tanzim_tarihi = p.tanzim_tarihi,
+                        teklif_no = p.teklif != null ? p.teklif.teklif_no : null
+                    })
+                    .ToListAsync();
+
+                return Ok(poliseler);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Poliçeler alınırken hata oluştu", error = ex.Message });
             }
         }
 
@@ -291,6 +333,84 @@ namespace SigortaYonetimAPI.Controllers
             }
         }
 
+        // PUT: api/Poliseler/5
+        [HttpPut("{id}")]
+        [Authorize(Roles = "ADMIN,ACENTE")]
+        public async Task<IActionResult> UpdatePolice(int id, [FromBody] PoliceUpdateDto updateDto)
+        {
+            try
+            {
+                var police = await _context.POLISELERs.FindAsync(id);
+                if (police == null)
+                    return NotFound("Poliçe bulunamadı");
+
+                // ACENTE sadece kendi oluşturduğu poliçeleri güncelleyebilir
+                if (User.IsInRole("ACENTE"))
+                {
+                    var kullaniciId = int.Parse(User.FindFirst("KullanicilarId")?.Value ?? "0");
+                    if (police.tanzim_eden_kullanici_id != kullaniciId)
+                        return Forbid("Bu poliçeyi güncelleme yetkiniz yok");
+                }
+
+                // İlişkili kayıt kontrolleri
+                if (!await _context.MUSTERILERs.AnyAsync(m => m.id == updateDto.musteri_id))
+                    return BadRequest("Müşteri bulunamadı");
+                if (!await _context.POLICE_TURLERIs.AnyAsync(p => p.id == updateDto.police_turu_id))
+                    return BadRequest("Poliçe türü bulunamadı");
+                if (!await _context.SIGORTA_SIRKETLERIs.AnyAsync(s => s.id == updateDto.sigorta_sirketi_id))
+                    return BadRequest("Sigorta şirketi bulunamadı");
+
+                police.musteri_id = updateDto.musteri_id;
+                police.police_turu_id = updateDto.police_turu_id;
+                police.sigorta_sirketi_id = updateDto.sigorta_sirketi_id;
+                police.baslangic_tarihi = updateDto.baslangic_tarihi;
+                police.bitis_tarihi = updateDto.bitis_tarihi;
+                police.brut_prim = updateDto.brut_prim;
+                police.net_prim = updateDto.net_prim;
+                police.komisyon_tutari = updateDto.komisyon_tutari;
+                police.vergi_tutari = updateDto.vergi_tutari;
+                police.toplam_tutar = updateDto.toplam_tutar;
+                police.notlar = updateDto.notlar;
+                police.guncelleme_tarihi = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Poliçe güncellendi" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Poliçe güncellenirken hata oluştu: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/Poliseler/5 (opsiyonel: soft delete yerine iptal önerilir)
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<IActionResult> DeletePolice(int id)
+        {
+            try
+            {
+                var police = await _context.POLISELERs
+                    .Include(p => p.ODEMELERs)
+                    .Include(p => p.HASAR_DOSYALARs)
+                    .FirstOrDefaultAsync(p => p.id == id);
+                if (police == null)
+                    return NotFound(new { message = "Poliçe bulunamadı" });
+
+                if ((police.ODEMELERs?.Any() ?? false) || (police.HASAR_DOSYALARs?.Any() ?? false))
+                {
+                    return BadRequest(new { message = "Ödeme veya hasar kaydı olan poliçeler silinemez. Lütfen iptal edin." });
+                }
+
+                _context.POLISELERs.Remove(police);
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Poliçe silindi" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Poliçe silinirken hata oluştu: {ex.Message}" });
+            }
+        }
+
         // GET: api/Poliseler/lookup-data
         [HttpGet("lookup-data")]
         public async Task<IActionResult> GetLookupData()
@@ -411,6 +531,48 @@ namespace SigortaYonetimAPI.Controllers
                 // Komisyon hesaplanamasa bile ana işlem devam etsin
                 Console.WriteLine($"Komisyon hesaplanamadı: {ex.Message}");
             }
+        }
+
+        private async Task<int> GetCurrentMusteriIdAsync()
+        {
+            // Önce MusteriId claim'ini kontrol et
+            var musteriIdClaim = User.FindFirst("MusteriId")?.Value;
+            if (int.TryParse(musteriIdClaim, out int musteriId))
+                return musteriId;
+
+            // KullanicilarId claim'ini kontrol et (JWT'de mevcut)
+            var kullanicilarIdClaim = User.FindFirst("KullanicilarId")?.Value;
+            if (int.TryParse(kullanicilarIdClaim, out int kullanicilarId))
+            {
+                Console.WriteLine($"Debug - KullanicilarId claim'den: {kullanicilarId}");
+                var musteri = await _context.MUSTERILERs.FirstOrDefaultAsync(m => m.kullanici_id == kullanicilarId);
+                if (musteri != null)
+                {
+                    Console.WriteLine($"Debug - Müşteri bulundu (KullanicilarId ile): {musteri.id}");
+                    return musteri.id;
+                }
+            }
+
+            // Fallback: Email ile dene
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (!string.IsNullOrEmpty(userEmail))
+            {
+                Console.WriteLine($"Debug - Email ile aranıyor: {userEmail}");
+                var musteri = await _context.MUSTERILERs.FirstOrDefaultAsync(m => m.eposta == userEmail);
+                if (musteri != null)
+                {
+                    Console.WriteLine($"Debug - Müşteri bulundu (email ile): {musteri.id}");
+                    return musteri.id;
+                }
+            }
+
+            Console.WriteLine($"Debug - Müşteri bulunamadı");
+            return 0;
+        }
+
+        private int GetCurrentMusteriId()
+        {
+            return GetCurrentMusteriIdAsync().GetAwaiter().GetResult();
         }
     }
 } 

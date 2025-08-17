@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SigortaYonetimAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+edd8c306e907d319e6d5ded681b306e24980e699")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c4df9321af266dad7051d2484b781555cf3114d2")]
 [assembly: System.Reflection.AssemblyProductAttribute("SigortaYonetimAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SigortaYonetimAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

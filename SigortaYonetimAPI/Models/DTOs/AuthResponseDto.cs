@@ -8,6 +8,7 @@ namespace SigortaYonetimAPI.Models.DTOs
         public string? RefreshToken { get; set; }
         public DateTime? ExpiresAt { get; set; }
         public UserInfoDto? User { get; set; }
+        public object? Data { get; set; }
     }
 
     public class UserInfoDto
@@ -26,5 +27,19 @@ namespace SigortaYonetimAPI.Models.DTOs
         
         // MUSTERILER tablosu ile entegrasyon (KULLANICI rolü için)
         public int? MusteriId { get; set; }
+        
+        // Müşteri bilgileri
+        public string? TcKimlikNo { get; set; }
+        public string? DogumTarihi { get; set; }
+        public int? Cinsiyet { get; set; }
+        public int? MedeniDurum { get; set; }
+        public string? Meslek { get; set; }
+        public int? EgitimDurumu { get; set; }
+        public decimal? AylikGelir { get; set; }
+        public string? AdresIl { get; set; }
+        public string? AdresIlce { get; set; }
+        public string? AdresMahalle { get; set; }
+        public string? AdresDetay { get; set; }
+        public string? PostaKodu { get; set; }
     }
 } 

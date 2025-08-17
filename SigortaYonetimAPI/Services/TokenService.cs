@@ -36,6 +36,12 @@ namespace SigortaYonetimAPI.Services
                 new Claim("soyad", user.Soyad)
             };
 
+            // KULLANICILAR tablosundaki ID'yi JWT'ye claim olarak ekle (tutarlı anahtar: KullanicilarId)
+            if (user.KullanicilarId.HasValue)
+            {
+                claims.Add(new Claim("KullanicilarId", user.KullanicilarId.Value.ToString()));
+            }
+
             // Rolleri claims'e ekle
             foreach (var role in roles)
             {

@@ -7,7 +7,6 @@ namespace SigortaYonetimAPI.Models.DTOs
     {
         public int id { get; set; }
         public string musteri_no { get; set; } = string.Empty;
-        public string tip_adi { get; set; } = string.Empty; // DURUM_TANIMLARI'ndan
         public string? ad { get; set; }
         public string? soyad { get; set; }
         public string? sirket_adi { get; set; }
@@ -16,7 +15,7 @@ namespace SigortaYonetimAPI.Models.DTOs
         public string? adres_il { get; set; }
         public bool? blacklist_mi { get; set; }
         public DateTime kayit_tarihi { get; set; }
-        public string tam_ad => !string.IsNullOrEmpty(sirket_adi) ? sirket_adi : $"{ad} {soyad}";
+        public string tam_ad => !string.IsNullOrEmpty(sirket_adi) ? sirket_adi : $"{ad} {soyad}".Trim();
     }
 
     public class MusteriDetayDto
@@ -60,6 +59,8 @@ namespace SigortaYonetimAPI.Models.DTOs
 
     public class MusteriCreateDto
     {
+        public int? kullanici_id { get; set; }
+
         [StringLength(50, ErrorMessage = "Ad en fazla 50 karakter olabilir")]
         public string? ad { get; set; }
 
@@ -147,8 +148,6 @@ namespace SigortaYonetimAPI.Models.DTOs
     public class MusteriIstatistikDto
     {
         public int toplam_musteri_sayisi { get; set; }
-        public int bireysel_musteri_sayisi { get; set; }
-        public int kurumsal_musteri_sayisi { get; set; }
         public int blacklist_musteri_sayisi { get; set; }
         public int bu_ay_eklenen_sayisi { get; set; }
         public decimal ortalama_aylık_gelir { get; set; }

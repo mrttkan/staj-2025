@@ -13,6 +13,19 @@ interface User {
   emailDogrulandi?: boolean;
   // MUSTERILER tablosu ile entegrasyon (KULLANICI rolü için)
   musteriId?: number;
+  // Müşteri bilgileri
+  tcKimlikNo?: string;
+  dogumTarihi?: string;
+  cinsiyet?: number;
+  medeniDurum?: number;
+  meslek?: string;
+  egitimDurumu?: number;
+  aylikGelir?: number;
+  adresIl?: string;
+  adresIlce?: string;
+  adresMahalle?: string;
+  adresDetay?: string;
+  postaKodu?: string;
 }
 
 interface AuthContextType {
@@ -23,6 +36,8 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   isAuthenticated: boolean;
+  refreshToken: () => Promise<boolean>;
+  isTokenExpired: () => boolean;
 }
 
 interface RegisterData {
@@ -66,50 +81,150 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sayfa yüklendiğinde localStorage'dan token ve kullanıcı bilgilerini kontrol et
-  useEffect(() => {
+  // Token'ın süresi dolup dolmadığını kontrol et
+  const isTokenExpired = (): boolean => {
     const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    if (!storedToken) return true;
     
-    if (storedToken && storedUser) {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        // Geçersiz JSON, localStorage'ı temizle
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     try {
-      const response = await fetch('http://localhost:5000/api/Auth/login', {
+      const payload = JSON.parse(atob(storedToken.split('.')[1]));
+      return Date.now() >= payload.exp * 1000;
+    } catch (error) {
+      console.error('Token decode error:', error);
+      return true;
+    }
+  };
+
+  // Token yenileme fonksiyonu
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const storedToken = localStorage.getItem('token');
+      if (!storedToken) return false;
+
+      const response = await fetch('/api/Auth/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${storedToken}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.token) {
+          setToken(data.token);
+          setUser(data.user);
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      return false;
+    }
+  };
+
+  // Sayfa yüklendiğinde localStorage'dan token ve kullanıcı bilgilerini kontrol et
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (storedToken && storedUser) {
+        try {
+          // Token süresi dolmuşsa yenilemeye çalış
+          if (isTokenExpired()) {
+            console.log('Token süresi dolmuş, yenilenmeye çalışılıyor...');
+            const refreshed = await refreshToken();
+            if (!refreshed) {
+              // Yenileme başarısızsa logout yap
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setToken(null);
+              setUser(null);
+            }
+          } else {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          }
+        } catch (error) {
+          // Geçersiz JSON, localStorage'ı temizle
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initializeAuth();
+  }, []);
+
+  // Token süresi dolduğunda otomatik yenileme
+  useEffect(() => {
+    if (!token) return;
+
+    const checkTokenExpiry = async () => {
+      if (isTokenExpired()) {
+        console.log('Token süresi doldu, yenilenmeye çalışılıyor...');
+        const refreshed = await refreshToken();
+        if (!refreshed) {
+          logout();
+        }
+      }
+    };
+
+    // Her 5 dakikada bir token süresini kontrol et
+    const interval = setInterval(checkTokenExpiry, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [token]);
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      // Güvenlik başlıkları ile istek
+      const response = await fetch('/api/Auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
-        body: JSON.stringify({ email, password }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ 
+          email: email.toLowerCase().trim(), 
+          password: password,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent.substring(0, 100) // Kısıtlı user agent bilgisi
+        }),
       });
 
       const data = await response.json();
 
       if (data.success && data.token) {
-        // Token ve kullanıcı bilgilerini sakla
+        // Token ve kullanıcı bilgilerini güvenli şekilde sakla
         setToken(data.token);
         setUser(data.user);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
         
-        return { success: true, message: data.message };
+        // Güvenli localStorage kullanımı
+        try {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('loginTime', new Date().toISOString());
+          localStorage.setItem('appVersion', '1.0.0');
+        } catch (storageError) {
+          console.warn('LocalStorage yazma hatası:', storageError);
+        }
+        
+        return { success: true, message: data.message || 'Giriş başarılı' };
       } else {
         return { success: false, message: data.message || 'Giriş başarısız' };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, message: 'Sunucu hatası oluştu' };
+      return { success: false, message: 'Bağlantı hatası oluştu' };
     }
   };
 
@@ -118,7 +233,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('AuthContext: Register API çağrısı başlıyor...');
       console.log('AuthContext: Gönderilen data:', data);
 
-      const response = await fetch('http://localhost:5000/api/Auth/register', {
+      const response = await fetch('/api/Auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,6 +302,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isAuthenticated,
+    refreshToken,
+    isTokenExpired,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

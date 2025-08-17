@@ -15,7 +15,11 @@ public partial class MUSTERILER
 
     public string? soyad { get; set; }
 
+    public string? sirket_adi { get; set; }
+
     public string? tc_kimlik_no { get; set; }
+
+    public string? vergi_no { get; set; }
 
     public string? eposta { get; set; }
 
@@ -57,8 +61,6 @@ public partial class MUSTERILER
 
     public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARs { get; set; } = new List<HASAR_DOSYALAR>();
 
-    public virtual ICollection<MUSTERI_ILETISIM_TERCIHLERI> MUSTERI_ILETISIM_TERCIHLERIs { get; set; } = new List<MUSTERI_ILETISIM_TERCIHLERI>();
-
     public virtual ICollection<ODEMELER> ODEMELERs { get; set; } = new List<ODEMELER>();
 
     public virtual ICollection<POLICE_TEKLIFLERI> POLICE_TEKLIFLERIs { get; set; } = new List<POLICE_TEKLIFLERI>();
@@ -73,5 +75,8 @@ public partial class MUSTERILER
 
     public virtual DURUM_TANIMLARI? medeni_durum { get; set; }
     
+    public int? DURUM_TANIMLARIid { get; set; }
+
+    public virtual DURUM_TANIMLARI? DURUM_TANIMLARI { get; set; }
 
 }

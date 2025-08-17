@@ -19,23 +19,177 @@ namespace SigortaYonetimAPI.Controllers
             _context = context;
         }
 
+        // GET: api/Musteriler/Current
+        [HttpGet("Current")]
+        [Authorize]
+        public async Task<IActionResult> GetCurrentMusteri()
+        {
+            try
+            {
+                var musteriId = GetCurrentMusteriId();
+                if (musteriId == 0)
+                {
+                    return Unauthorized(new { message = "Müşteri bilgisi bulunamadı" });
+                }
+
+                var musteri = await _context.MUSTERILERs
+                    .Where(m => m.id == musteriId)
+                    .Select(m => new
+                    {
+                        id = m.id,
+                        ad = m.ad,
+                        soyad = m.soyad,
+                        telefon = m.telefon,
+                        meslek = m.meslek,
+                        aylik_gelir = m.aylik_gelir,
+                        adres_il = m.adres_il,
+                        adres_ilce = m.adres_ilce,
+                        adres_mahalle = m.adres_mahalle,
+                        adres_detay = m.adres_detay,
+                        posta_kodu = m.posta_kodu
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (musteri == null)
+                {
+                    return NotFound(new { message = "Müşteri bulunamadı" });
+                }
+
+                return Ok(musteri);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Müşteri bilgileri alınırken hata oluştu", error = ex.Message });
+            }
+        }
+
+        // PUT: api/Musteriler/Current
+        [HttpPut("Current")]
+        [Authorize]
+        public async Task<IActionResult> UpdateCurrentMusteri([FromBody] MusteriUpdateDto updateDto)
+        {
+            try
+            {
+                var musteriId = GetCurrentMusteriId();
+                if (musteriId == 0)
+                {
+                    return Unauthorized(new { message = "Müşteri bilgisi bulunamadı" });
+                }
+
+                Console.WriteLine($"=== UpdateCurrentMusteri çağrıldı ===");
+                Console.WriteLine($"MusteriId: {musteriId}");
+                Console.WriteLine($"UpdateDto: {System.Text.Json.JsonSerializer.Serialize(updateDto)}");
+                Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+                
+                if (!ModelState.IsValid)
+                {
+                    Console.WriteLine("ModelState hataları:");
+                    foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        Console.WriteLine($"- {error.ErrorMessage}");
+                    }
+                    return BadRequest(ModelState);
+                }
+
+                var musteri = await _context.MUSTERILERs.FindAsync(musteriId);
+                if (musteri == null)
+                {
+                    return NotFound("Müşteri bulunamadı");
+                }
+
+                // Dublicate kontrolleri (kendisi hariç)
+                if (!string.IsNullOrEmpty(updateDto.tc_kimlik_no))
+                {
+                    var mevcutTc = await _context.MUSTERILERs
+                        .AnyAsync(m => m.tc_kimlik_no == updateDto.tc_kimlik_no && m.id != musteriId);
+                    if (mevcutTc)
+                    {
+                        return BadRequest("Bu TC Kimlik numarası ile kayıtlı başka bir müşteri bulunmaktadır");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(updateDto.eposta))
+                {
+                    var mevcutEposta = await _context.MUSTERILERs
+                        .AnyAsync(m => m.eposta == updateDto.eposta && m.id != musteriId);
+                    if (mevcutEposta)
+                    {
+                        return BadRequest("Bu e-posta adresi ile kayıtlı başka bir müşteri bulunmaktadır");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(updateDto.telefon))
+                {
+                    var mevcutTelefon = await _context.MUSTERILERs
+                        .AnyAsync(m => m.telefon == updateDto.telefon && m.id != musteriId);
+                    if (mevcutTelefon)
+                    {
+                        return BadRequest("Bu telefon numarası ile kayıtlı başka bir müşteri bulunmaktadır");
+                    }
+                }
+
+                // Güncelleme
+                musteri.ad = updateDto.ad;
+                musteri.soyad = updateDto.soyad;
+                musteri.sirket_adi = updateDto.sirket_adi;
+                musteri.tc_kimlik_no = updateDto.tc_kimlik_no;
+                musteri.vergi_no = updateDto.vergi_no;
+                musteri.eposta = updateDto.eposta;
+                musteri.telefon = updateDto.telefon;
+    
+                musteri.dogum_tarihi = updateDto.dogum_tarihi;
+                musteri.cinsiyet_id = updateDto.cinsiyet_id;
+                musteri.medeni_durum_id = updateDto.medeni_durum_id;
+                musteri.meslek = updateDto.meslek;
+                musteri.egitim_durumu_id = updateDto.egitim_durumu_id;
+                musteri.aylik_gelir = updateDto.aylik_gelir;
+                musteri.adres_il = updateDto.adres_il;
+                musteri.adres_ilce = updateDto.adres_ilce;
+                musteri.adres_mahalle = updateDto.adres_mahalle;
+                musteri.adres_detay = updateDto.adres_detay;
+                musteri.posta_kodu = updateDto.posta_kodu;
+                musteri.not_bilgileri = updateDto.not_bilgileri;
+                musteri.blacklist_mi = updateDto.blacklist_mi ?? false;
+                musteri.blacklist_nedeni = updateDto.blacklist_nedeni;
+                musteri.guncelleme_tarihi = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Müşteri başarıyla güncellendi", id = musteri.id });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"UpdateCurrentMusteri hatası: {ex.Message}");
+                return StatusCode(500, new { message = "Müşteri güncellenirken hata oluştu", error = ex.Message });
+            }
+        }
+
         // GET: api/Musteriler
         [HttpGet]
         public async Task<IActionResult> GetMusteriler([FromQuery] MusteriSearchDto searchDto, [FromQuery] int? kullanici_id = null)
         {
             try
             {
+                Console.WriteLine("=== GetMusteriler çağrıldı ===");
+                Console.WriteLine($"SearchDto: {System.Text.Json.JsonSerializer.Serialize(searchDto)}");
+                Console.WriteLine($"Kullanici_id: {kullanici_id}");
+                
+                // Authentication debug
+                Console.WriteLine($"User.Identity.IsAuthenticated: {User.Identity?.IsAuthenticated}");
+                Console.WriteLine($"User.Identity.Name: {User.Identity?.Name}");
+                Console.WriteLine($"User.Claims count: {User.Claims.Count()}");
+                
+                var userClaims = User.Claims;
+                var roles = userClaims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+                Console.WriteLine($"User roles: {string.Join(", ", roles)}");
+                
                 var query = _context.MUSTERILERs
-                    .Include(m => m.cinsiyet)
-                    .Include(m => m.medeni_durum)
-                    .Include(m => m.egitim_durumu)
                     .AsQueryable();
 
-                // KULLANICI rolü için sadece kendi verilerini göster
-                if (kullanici_id.HasValue)
-                {
-                    query = query.Where(m => m.id == kullanici_id.Value);
-                }
+                // Debug: Tüm müşterileri göster (rol filtreleme geçici olarak kaldırıldı)
+                Console.WriteLine($"Kullanıcı rolleri: {string.Join(", ", roles)}");
+                Console.WriteLine($"Kullanıcı adı: {User.Identity?.Name}");
+                Console.WriteLine("Rol filtreleme kaldırıldı - tüm müşteriler gösteriliyor");
 
                 // Filtreleme
                 if (!string.IsNullOrEmpty(searchDto.arama_metni))
@@ -44,9 +198,11 @@ namespace SigortaYonetimAPI.Controllers
                         m.musteri_no.Contains(searchDto.arama_metni) ||
                         (m.ad ?? "").Contains(searchDto.arama_metni) ||
                         (m.soyad ?? "").Contains(searchDto.arama_metni) ||
+                        (m.sirket_adi ?? "").Contains(searchDto.arama_metni) ||
                         (m.eposta ?? "").Contains(searchDto.arama_metni) ||
                         (m.telefon ?? "").Contains(searchDto.arama_metni) ||
-                        (m.tc_kimlik_no ?? "").Contains(searchDto.arama_metni));
+                        (m.tc_kimlik_no ?? "").Contains(searchDto.arama_metni) ||
+                        (m.vergi_no ?? "").Contains(searchDto.arama_metni));
                 }
 
                 if (!string.IsNullOrEmpty(searchDto.musteri_no))
@@ -86,6 +242,7 @@ namespace SigortaYonetimAPI.Controllers
                 };
 
                 var totalCount = await query.CountAsync();
+                Console.WriteLine($"Toplam müşteri sayısı: {totalCount}");
 
                 var musteriler = await query
                     .Skip((searchDto.sayfa - 1) * searchDto.sayfa_boyutu)
@@ -96,6 +253,7 @@ namespace SigortaYonetimAPI.Controllers
                         musteri_no = m.musteri_no,
                         ad = m.ad,
                         soyad = m.soyad,
+                        sirket_adi = m.sirket_adi,
                         eposta = m.eposta,
                         telefon = m.telefon,
                         adres_il = m.adres_il,
@@ -103,6 +261,14 @@ namespace SigortaYonetimAPI.Controllers
                         kayit_tarihi = m.kayit_tarihi
                     })
                     .ToListAsync();
+
+                Console.WriteLine($"Döndürülen müşteri sayısı: {musteriler.Count}");
+                Console.WriteLine("Müşteri detayları:");
+                foreach (var musteri in musteriler)
+                {
+                    Console.WriteLine($"ID: {musteri.id}, No: {musteri.musteri_no}, Ad: {musteri.ad}, Soyad: {musteri.soyad}");
+                }
+                Console.WriteLine("=== GetMusteriler tamamlandı ===");
 
                 return Ok(new
                 {
@@ -126,15 +292,34 @@ namespace SigortaYonetimAPI.Controllers
             try
             {
                 var musteri = await _context.MUSTERILERs
-                    .Include(m => m.cinsiyet)
-                    .Include(m => m.medeni_durum)
-                    .Include(m => m.egitim_durumu)
                     .FirstOrDefaultAsync(m => m.id == id);
 
                 if (musteri == null)
                 {
                     return NotFound("Müşteri bulunamadı");
                 }
+
+                // Durum adlarını ayrı sorgularla al
+                var cinsiyetAdi = musteri.cinsiyet_id.HasValue 
+                    ? await _context.DURUM_TANIMLARIs
+                        .Where(d => d.id == musteri.cinsiyet_id.Value)
+                        .Select(d => d.deger_aciklama)
+                        .FirstOrDefaultAsync()
+                    : null;
+
+                var medeniDurumAdi = musteri.medeni_durum_id.HasValue
+                    ? await _context.DURUM_TANIMLARIs
+                        .Where(d => d.id == musteri.medeni_durum_id.Value)
+                        .Select(d => d.deger_aciklama)
+                        .FirstOrDefaultAsync()
+                    : null;
+
+                var egitimDurumuAdi = musteri.egitim_durumu_id.HasValue
+                    ? await _context.DURUM_TANIMLARIs
+                        .Where(d => d.id == musteri.egitim_durumu_id.Value)
+                        .Select(d => d.deger_aciklama)
+                        .FirstOrDefaultAsync()
+                    : null;
 
                 // İstatistikler hesapla
                 var policeIstatistikleri = await _context.POLISELERs
@@ -157,17 +342,19 @@ namespace SigortaYonetimAPI.Controllers
                     musteri_no = musteri.musteri_no,
                     ad = musteri.ad,
                     soyad = musteri.soyad,
+                    sirket_adi = musteri.sirket_adi,
+                    tc_kimlik_no = musteri.tc_kimlik_no,
+                    vergi_no = musteri.vergi_no,
                     eposta = musteri.eposta,
                     telefon = musteri.telefon,
-    
                     dogum_tarihi = musteri.dogum_tarihi,
                     cinsiyet_id = musteri.cinsiyet_id,
-                    cinsiyet_adi = musteri.cinsiyet?.deger_aciklama,
+                    cinsiyet_adi = cinsiyetAdi,
                     medeni_durum_id = musteri.medeni_durum_id,
-                    medeni_durum_adi = musteri.medeni_durum?.deger_aciklama,
+                    medeni_durum_adi = medeniDurumAdi,
                     meslek = musteri.meslek,
                     egitim_durumu_id = musteri.egitim_durumu_id,
-                    egitim_durumu_adi = musteri.egitim_durumu?.deger_aciklama,
+                    egitim_durumu_adi = egitimDurumuAdi,
                     aylik_gelir = musteri.aylik_gelir,
                     adres_il = musteri.adres_il,
                     adres_ilce = musteri.adres_ilce,
@@ -242,9 +429,13 @@ namespace SigortaYonetimAPI.Controllers
 
                 var musteri = new MUSTERILER
                 {
+                    kullanici_id = createDto.kullanici_id,
                     musteri_no = musteriNo,
                     ad = createDto.ad,
                     soyad = createDto.soyad,
+                    sirket_adi = createDto.sirket_adi,
+                    tc_kimlik_no = createDto.tc_kimlik_no,
+                    vergi_no = createDto.vergi_no,
                     eposta = createDto.eposta,
                     telefon = createDto.telefon,
                     dogum_tarihi = createDto.dogum_tarihi,
@@ -284,14 +475,24 @@ namespace SigortaYonetimAPI.Controllers
         {
             try
             {
+                Console.WriteLine($"=== UpdateMusteri çağrıldı ===");
+                Console.WriteLine($"ID: {id}");
+                Console.WriteLine($"UpdateDto: {System.Text.Json.JsonSerializer.Serialize(updateDto)}");
+                Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+                
+                if (!ModelState.IsValid)
+                {
+                    Console.WriteLine("ModelState hataları:");
+                    foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        Console.WriteLine($"- {error.ErrorMessage}");
+                    }
+                    return BadRequest(ModelState);
+                }
+
                 if (id != updateDto.id)
                 {
                     return BadRequest("ID uyumsuzluğu");
-                }
-
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
                 }
 
                 var musteri = await _context.MUSTERILERs.FindAsync(id);
@@ -301,7 +502,8 @@ namespace SigortaYonetimAPI.Controllers
                 }
 
                 // Kullanıcının kendi profilini güncelleyip güncelleyemeyeceğini kontrol et
-                var currentUserId = User.FindFirst("kullanicilarId")?.Value;
+                // JWT claim anahtarını tutarlı kullan (KullanicilarId)
+                var currentUserId = User.FindFirst("KullanicilarId")?.Value;
                 var userRoles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
                 
                 // ADMIN ve ACENTE tüm müşterileri güncelleyebilir
@@ -348,6 +550,9 @@ namespace SigortaYonetimAPI.Controllers
                 // Güncelleme
                 musteri.ad = updateDto.ad;
                 musteri.soyad = updateDto.soyad;
+                musteri.sirket_adi = updateDto.sirket_adi;
+                musteri.tc_kimlik_no = updateDto.tc_kimlik_no;
+                musteri.vergi_no = updateDto.vergi_no;
                 musteri.eposta = updateDto.eposta;
                 musteri.telefon = updateDto.telefon;
     
@@ -395,10 +600,11 @@ namespace SigortaYonetimAPI.Controllers
                 // İlişkili kayıtlar var mı kontrol et
                 var hasPolice = await _context.POLISELERs.AnyAsync(p => p.musteri_id == id);
                 var hasHasar = await _context.HASAR_DOSYALARs.AnyAsync(h => h.musteri_id == id);
+                var hasPoliceTeklif = await _context.POLICE_TEKLIFLERIs.AnyAsync(pt => pt.musteri_id == id);
 
-                if (hasPolice || hasHasar)
+                if (hasPolice || hasHasar || hasPoliceTeklif)
                 {
-                    return BadRequest("Bu müşteriye ait poliçe veya hasar kayıtları bulunduğu için silinemez. Müşteriyi blacklist'e ekleyebilirsiniz.");
+                    return BadRequest("Bu müşteriye ait poliçe, poliçe teklifi veya hasar kayıtları bulunduğu için silinemez. Müşteriyi blacklist'e ekleyebilirsiniz.");
                 }
 
                 _context.MUSTERILERs.Remove(musteri);
@@ -457,13 +663,13 @@ namespace SigortaYonetimAPI.Controllers
 
                 var ortalamaGelir = await _context.MUSTERILERs
                     .Where(m => m.aylik_gelir.HasValue)
-                    .Select(m => m.aylik_gelir.Value)
+                    .Select(m => m.aylik_gelir!.Value)
                     .DefaultIfEmpty(0)
                     .AverageAsync();
 
                 var ilBazindaDagilim = await _context.MUSTERILERs
                     .Where(m => !string.IsNullOrEmpty(m.adres_il))
-                    .GroupBy(m => m.adres_il)
+                    .GroupBy(m => m.adres_il!)
                     .Select(g => new IlBazindaMusteriDto
                     {
                         il_adi = g.Key,
@@ -490,19 +696,87 @@ namespace SigortaYonetimAPI.Controllers
             }
         }
 
+        // GET: api/Musteriler/test
+        [HttpGet("test")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestMusteriler()
+        {
+            try
+            {
+                var musteriler = await _context.MUSTERILERs.ToListAsync();
+                Console.WriteLine($"Test endpoint: Toplam {musteriler.Count} müşteri bulundu");
+                foreach (var m in musteriler)
+                {
+                    Console.WriteLine($"Test - ID: {m.id}, No: {m.musteri_no}, Ad: {m.ad}, Soyad: {m.soyad}");
+                }
+                
+                return Ok(new
+                {
+                    toplam_musteri = musteriler.Count,
+                    musteriler = musteriler.Select(m => new { m.id, m.musteri_no, m.ad, m.soyad }),
+                    ilk_musteri = musteriler.FirstOrDefault() != null ? new
+                    {
+                        id = musteriler.First().id,
+                        musteri_no = musteriler.First().musteri_no,
+                        ad = musteriler.First().ad,
+                        soyad = musteriler.First().soyad
+                    } : null
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Test hatası: {ex.Message}");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        // GET: api/Musteriler/auth-test
+        [HttpGet("auth-test")]
+        [AllowAnonymous]
+        public IActionResult AuthTest()
+        {
+            try
+            {
+                // Request headers'ı logla
+                var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+                Console.WriteLine("=== Auth Test Request Headers ===");
+                foreach (var header in headers)
+                {
+                    Console.WriteLine($"{header.Key}: {header.Value}");
+                }
+                
+                // Authorization header'ı kontrol et
+                if (Request.Headers.TryGetValue("Authorization", out var authHeader))
+                {
+                    Console.WriteLine($"Authorization header found: {authHeader}");
+                    
+                    // Token'ı parse et
+                    var authValue = authHeader.ToString();
+                    if (authValue.StartsWith("Bearer "))
+                    {
+                        var token = authValue.Substring(7);
+                        Console.WriteLine($"Token extracted: {token.Substring(0, Math.Min(50, token.Length))}...");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No Authorization header found");
+                }
+                
+                return Ok(new { message = "Auth test completed", headers = headers });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         // GET: api/Musteriler/lookup-data
         [HttpGet("lookup-data")]
         public async Task<IActionResult> GetLookupData()
         {
             try
             {
-                // Sadece iki müşteri tipi sabit olarak dön
-                var musteriTipleri = new List<object>
-                {
-                    new { id = 1, text = "Bireysel Müşteri" },
-                    new { id = 2, text = "Kurumsal Müşteri" }
-                };
-
                 var cinsiyetler = await _context.DURUM_TANIMLARIs
                     .Where(d => d.tablo_adi == "MUSTERILER" && d.alan_adi == "cinsiyet_id" && d.aktif_mi)
                     .OrderBy(d => d.siralama)
@@ -531,7 +805,6 @@ namespace SigortaYonetimAPI.Controllers
 
                 return Ok(new
                 {
-                    musteri_tipleri = musteriTipleri,
                     cinsiyetler = cinsiyetler,
                     medeni_durumlar = medeniDurumlarMapped,
                     egitim_durumlari = egitimDurumlariMapped
@@ -592,6 +865,48 @@ namespace SigortaYonetimAPI.Controllers
             }
 
             return $"{prefix}{siradakiNo:D6}"; // MST2024000001 formatı
+        }
+
+        private async Task<int> GetCurrentMusteriIdAsync()
+        {
+            // Önce MusteriId claim'ini kontrol et
+            var musteriIdClaim = User.FindFirst("MusteriId")?.Value;
+            if (int.TryParse(musteriIdClaim, out int musteriId))
+                return musteriId;
+
+            // KullanicilarId claim'ini kontrol et (JWT'de mevcut)
+            var kullanicilarIdClaim = User.FindFirst("KullanicilarId")?.Value;
+            if (int.TryParse(kullanicilarIdClaim, out int kullanicilarId))
+            {
+                Console.WriteLine($"Debug - KullanicilarId claim'den: {kullanicilarId}");
+                var musteri = await _context.MUSTERILERs.FirstOrDefaultAsync(m => m.kullanici_id == kullanicilarId);
+                if (musteri != null)
+                {
+                    Console.WriteLine($"Debug - Müşteri bulundu (KullanicilarId ile): {musteri.id}");
+                    return musteri.id;
+                }
+            }
+
+            // Fallback: Email ile dene
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+            if (!string.IsNullOrEmpty(userEmail))
+            {
+                Console.WriteLine($"Debug - Email ile aranıyor: {userEmail}");
+                var musteri = await _context.MUSTERILERs.FirstOrDefaultAsync(m => m.eposta == userEmail);
+                if (musteri != null)
+                {
+                    Console.WriteLine($"Debug - Müşteri bulundu (email ile): {musteri.id}");
+                    return musteri.id;
+                }
+            }
+
+            Console.WriteLine($"Debug - Müşteri bulunamadı");
+            return 0;
+        }
+
+        private int GetCurrentMusteriId()
+        {
+            return GetCurrentMusteriIdAsync().GetAwaiter().GetResult();
         }
     }
 } 

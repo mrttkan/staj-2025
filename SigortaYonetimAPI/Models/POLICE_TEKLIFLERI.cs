@@ -53,6 +53,8 @@ public partial class POLICE_TEKLIFLERI
 
     public virtual ICollection<POLISELER> POLISELERs { get; set; } = new List<POLISELER>();
 
+    public virtual ICollection<TEKLIF_TEMINATLAR> TEKLIF_TEMINATLARs { get; set; } = new List<TEKLIF_TEMINATLAR>();
+
     public virtual DURUM_TANIMLARI durum { get; set; } = null!;
 
     public virtual MUSTERILER musteri { get; set; } = null!;

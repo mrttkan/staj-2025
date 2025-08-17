@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SigortaYonetimAPI.Models;
 using SigortaYonetimAPI.Models.DTOs;
 using SigortaYonetimAPI.Services;
+using System.Security.Claims;
 
 namespace SigortaYonetimAPI.Controllers
 {
@@ -18,6 +19,7 @@ namespace SigortaYonetimAPI.Controllers
         private readonly ITokenService _tokenService;
         private readonly ILogger<AuthController> _logger;
         private readonly SigortaYonetimDbContext _context;
+        private readonly IPasswordValidationService _passwordValidationService;
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
@@ -25,7 +27,8 @@ namespace SigortaYonetimAPI.Controllers
             RoleManager<ApplicationRole> roleManager,
             ITokenService tokenService,
             ILogger<AuthController> logger,
-            SigortaYonetimDbContext context)
+            SigortaYonetimDbContext context,
+            IPasswordValidationService passwordValidationService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -33,6 +36,7 @@ namespace SigortaYonetimAPI.Controllers
             _tokenService = tokenService;
             _logger = logger;
             _context = context;
+            _passwordValidationService = passwordValidationService;
         }
 
         [HttpPost("register")]
@@ -153,6 +157,42 @@ namespace SigortaYonetimAPI.Controllers
                     GuncellemeTarihi = DateTime.Now
                 };
 
+                // Şifre güvenlik kontrolü - Chrome uyarısını önlemek için
+                _logger.LogInformation("Şifre güvenlik kontrolü yapılıyor...");
+                var passwordValidation = await _passwordValidationService.ValidatePasswordAsync(request.Password, request.Email);
+                
+                if (!passwordValidation.IsValid)
+                {
+                    _logger.LogWarning("Şifre güvenlik kontrolünden geçemedi: {Errors}", 
+                        string.Join(", ", passwordValidation.Errors));
+                    
+                    // KULLANICILAR kaydını sil
+                    _context.KULLANICILARs.Remove(kullanici);
+                    await _context.SaveChangesAsync();
+                    
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = $"Şifre güvenlik gereksinimlerini karşılamıyor: {string.Join(" ", passwordValidation.Errors)}"
+                    });
+                }
+
+                if (passwordValidation.IsCompromised)
+                {
+                    _logger.LogWarning("Şifre bilinen zayıf şifreler listesinde: {Email}", request.Email);
+                    
+                    // KULLANICILAR kaydını sil
+                    _context.KULLANICILARs.Remove(kullanici);
+                    await _context.SaveChangesAsync();
+                    
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Bu şifre çok yaygın kullanılan bir şifredir. Güvenliğiniz için lütfen daha güçlü bir şifre seçin."
+                    });
+                }
+
+                _logger.LogInformation("Şifre güvenlik kontrolü başarılı. Güç skoru: {Score}", passwordValidation.StrengthScore);
                 _logger.LogInformation("Identity kullanıcısı oluşturuluyor...");
                 var result = await _userManager.CreateAsync(user, request.Password);
 
@@ -228,9 +268,11 @@ namespace SigortaYonetimAPI.Controllers
                     musteri_no = musteriNo,
                     ad = request.Ad,
                     soyad = request.Soyad,
+                    sirket_adi = request.SirketAdi,
+                    tc_kimlik_no = temizlenmisTcKimlik, // Artık tüm müşteriler için TC
+                    vergi_no = request.VergiNo,
                     eposta = request.Email,
                     telefon = temizlenmisTelefon,
-                    tc_kimlik_no = temizlenmisTcKimlik, // Artık tüm müşteriler için TC
                     dogum_tarihi = request.DogumTarihi.HasValue ? DateOnly.FromDateTime(request.DogumTarihi.Value) : null,
                     cinsiyet_id = cinsiyetDurum?.id, // Artık tüm müşteriler için cinsiyet
                     medeni_durum_id = medeniDurum?.id, // Artık tüm müşteriler için medeni durum
@@ -242,6 +284,7 @@ namespace SigortaYonetimAPI.Controllers
                     adres_mahalle = request.AdresMahalle,
                     adres_detay = request.AdresDetay,
                     posta_kodu = request.PostaKodu,
+                    not_bilgileri = request.NotBilgileri,
                     kayit_tarihi = DateTime.Now,
                     guncelleme_tarihi = DateTime.Now,
                     kaydeden_kullanici = "Sistem",
@@ -317,9 +360,47 @@ namespace SigortaYonetimAPI.Controllers
                     });
                 }
 
+                // Hesap kilitleme kontrolü
+                if (user.HesapKilitliMi)
+                {
+                    return Unauthorized(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Hesabınız kilitlenmiştir. Lütfen yönetici ile iletişime geçin.",
+                    });
+                }
+
+                // Hesap aktiflik kontrolü
+                if (!user.AktifMi)
+                {
+                    return Unauthorized(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Hesabınız pasif durumdadır. Lütfen yönetici ile iletişime geçin.",
+                    });
+                }
+
                 var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, false);
                 if (!result.Succeeded)
                 {
+                    // Başarısız giriş sayısını artır
+                    user.BasarisizGirisSayisi++;
+                    
+                    // 5 başarısız girişten sonra hesabı kilitle
+                    if (user.BasarisizGirisSayisi >= 5)
+                    {
+                        user.HesapKilitlenmeTarihi = DateTime.Now.AddHours(1); // 1 saat kilit
+                        await _userManager.UpdateAsync(user);
+                        
+                        return Unauthorized(new AuthResponseDto
+                        {
+                            Success = false,
+                            Message = "Çok fazla başarısız giriş denemesi. Hesabınız 1 saat süreyle kilitlenmiştir.",
+                        });
+                    }
+                    
+                    await _userManager.UpdateAsync(user);
+                    
                     return Unauthorized(new AuthResponseDto
                     {
                         Success = false,
@@ -343,6 +424,48 @@ namespace SigortaYonetimAPI.Controllers
                         kullanici.basarisiz_giris_sayisi = 0;
                         await _context.SaveChangesAsync();
                     }
+                }
+
+                // Sistem loguna giriş kaydı ekle
+                try
+                {
+                    // LOGIN işlem tipini bul veya oluştur
+                    var loginIslemTipi = await _context.DURUM_TANIMLARIs
+                        .FirstOrDefaultAsync(d => d.tablo_adi == "SISTEM_LOGLARI" && d.deger_kodu == "LOGIN");
+                    
+                    if (loginIslemTipi == null)
+                    {
+                        loginIslemTipi = new DURUM_TANIMLARI
+                        {
+                            tablo_adi = "SISTEM_LOGLARI",
+                            alan_adi = "islem_tipi",
+                            deger_kodu = "LOGIN",
+                            deger_aciklama = "Sisteme Giriş - Kullanıcı sisteme giriş yaptı"
+                        };
+                        _context.DURUM_TANIMLARIs.Add(loginIslemTipi);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // Sistem logu oluştur
+                    var sistemLogu = new SISTEM_LOGLARI
+                    {
+                        kullanici_id = user.KullanicilarId,
+                        islem_tipi_id = loginIslemTipi.id,
+                        tablo_adi = "KULLANICILAR",
+                        kayit_id = user.KullanicilarId,
+                        ip_adresi = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                        tarayici_bilgisi = HttpContext.Request.Headers["User-Agent"].ToString(),
+                        islem_tarihi = DateTime.Now,
+                        aciklama = $"{user.Ad} {user.Soyad} sisteme giriş yaptı"
+                    };
+                    
+                    _context.SISTEM_LOGLARIs.Add(sistemLogu);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogWarning(logEx, "Sistem logu eklenirken hata oluştu");
+                    // Log hatası login işlemini etkilemesin
                 }
 
                 // Token oluştur
@@ -384,7 +507,20 @@ namespace SigortaYonetimAPI.Controllers
                         KayitTarihi = kullaniciDetay?.kayit_tarihi,
                         EmailDogrulandi = kullaniciDetay?.email_dogrulandi ?? false,
                         // MUSTERILER tablosundan bilgiler (KULLANICI rolü için)
-                        MusteriId = musteriDetay?.id
+                        MusteriId = musteriDetay?.id,
+                        // Müşteri bilgileri
+                        TcKimlikNo = musteriDetay?.tc_kimlik_no,
+                        DogumTarihi = musteriDetay?.dogum_tarihi?.ToString("yyyy-MM-dd"),
+                        Cinsiyet = musteriDetay?.cinsiyet_id,
+                        MedeniDurum = musteriDetay?.medeni_durum_id,
+                        Meslek = musteriDetay?.meslek,
+                        EgitimDurumu = musteriDetay?.egitim_durumu_id,
+                        AylikGelir = musteriDetay?.aylik_gelir,
+                        AdresIl = musteriDetay?.adres_il,
+                        AdresIlce = musteriDetay?.adres_ilce,
+                        AdresMahalle = musteriDetay?.adres_mahalle,
+                        AdresDetay = musteriDetay?.adres_detay,
+                        PostaKodu = musteriDetay?.posta_kodu
                     }
                 });
             }
@@ -402,6 +538,64 @@ namespace SigortaYonetimAPI.Controllers
         [HttpPost("logout")]
         public async Task<ActionResult<AuthResponseDto>> Logout()
         {
+            try
+            {
+                // Kullanıcı bilgilerini al (token'dan)
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value;
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    var user = await _userManager.FindByEmailAsync(userEmail);
+                    if (user != null)
+                    {
+                        // Sistem loguna çıkış kaydı ekle
+                        try
+                        {
+                            // LOGOUT işlem tipini bul veya oluştur
+                            var logoutIslemTipi = await _context.DURUM_TANIMLARIs
+                                .FirstOrDefaultAsync(d => d.tablo_adi == "SISTEM_LOGLARI" && d.deger_kodu == "LOGOUT");
+                            
+                            if (logoutIslemTipi == null)
+                            {
+                                                            logoutIslemTipi = new DURUM_TANIMLARI
+                            {
+                                tablo_adi = "SISTEM_LOGLARI",
+                                alan_adi = "islem_tipi",
+                                deger_kodu = "LOGOUT",
+                                deger_aciklama = "Sistemden Çıkış - Kullanıcı sistemden çıkış yaptı"
+                            };
+                                _context.DURUM_TANIMLARIs.Add(logoutIslemTipi);
+                                await _context.SaveChangesAsync();
+                            }
+
+                            // Sistem logu oluştur
+                            var sistemLogu = new SISTEM_LOGLARI
+                            {
+                                kullanici_id = user.KullanicilarId,
+                                islem_tipi_id = logoutIslemTipi.id,
+                                tablo_adi = "KULLANICILAR",
+                                kayit_id = user.KullanicilarId,
+                                ip_adresi = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                                tarayici_bilgisi = HttpContext.Request.Headers["User-Agent"].ToString(),
+                                islem_tarihi = DateTime.Now,
+                                aciklama = $"{user.Ad} {user.Soyad} sistemden çıkış yaptı"
+                            };
+                            
+                            _context.SISTEM_LOGLARIs.Add(sistemLogu);
+                            await _context.SaveChangesAsync();
+                        }
+                        catch (Exception logEx)
+                        {
+                            _logger.LogWarning(logEx, "Sistem logu eklenirken hata oluştu");
+                            // Log hatası logout işlemini etkilemesin
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Logout sırasında kullanıcı bilgileri alınamadı");
+            }
+
             await _signInManager.SignOutAsync();
             return Ok(new AuthResponseDto
             {
@@ -659,6 +853,271 @@ namespace SigortaYonetimAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        }
+
+        // Şifre Sıfırlama İstek Gönderme
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+        {
+            try
+            {
+                _logger.LogInformation("Şifre sıfırlama isteği başladı. Email: {Email}", request.Email);
+
+                if (string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "E-posta adresi gereklidir."
+                    });
+                }
+
+                // Kullanıcıyı bul
+                var user = await _userManager.FindByEmailAsync(request.Email);
+                if (user == null)
+                {
+                    // Güvenlik için kullanıcı bulunamasa da başarılı mesajı döndür
+                    _logger.LogWarning("Şifre sıfırlama isteği: Kullanıcı bulunamadı. Email: {Email}", request.Email);
+                    return Ok(new AuthResponseDto
+                    {
+                        Success = true,
+                        Message = "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi."
+                    });
+                }
+
+                // Önceki aktif token'ları iptal et
+                var existingTokens = await _context.SIFRE_SIFIRLAMAs
+                    .Where(s => s.kullanici_id == int.Parse(user.Id) && !s.kullanildi_mi && s.son_kullanma_tarihi > DateTime.Now)
+                    .ToListAsync();
+
+                foreach (var token in existingTokens)
+                {
+                    token.kullanildi_mi = true;
+                }
+
+                // Yeni token oluştur
+                var resetToken = Guid.NewGuid().ToString("N");
+                var expiryDate = DateTime.Now.AddHours(24); // 24 saat geçerli
+
+                var passwordReset = new SIFRE_SIFIRLAMA
+                {
+                    kullanici_id = int.Parse(user.Id),
+                    token = resetToken,
+                    son_kullanma_tarihi = expiryDate,
+                    kullanildi_mi = false,
+                    ip_adresi = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    olusturma_tarihi = DateTime.Now
+                };
+
+                _context.SIFRE_SIFIRLAMAs.Add(passwordReset);
+                await _context.SaveChangesAsync();
+
+                // E-posta gönderme simülasyonu (gerçek uygulamada e-posta servisi kullanılır)
+                _logger.LogInformation("Şifre sıfırlama token'ı oluşturuldu. Token: {Token}, Kullanıcı: {Email}", 
+                    resetToken, request.Email);
+
+                // TODO: Gerçek e-posta gönderme işlemi burada yapılacak
+                // var resetLink = $"{Request.Scheme}://{Request.Host}/reset-password?token={resetToken}";
+
+                return Ok(new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şifre sıfırlama isteği işlenirken hata oluştu. Email: {Email}", request.Email);
+                return StatusCode(500, new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "Şifre sıfırlama işlemi sırasında bir hata oluştu."
+                });
+            }
+        }
+
+        // Şifre Sıfırlama Token Doğrulama
+        [HttpPost("verify-reset-token")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> VerifyResetToken([FromBody] VerifyResetTokenRequestDto request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Token))
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Token gereklidir."
+                    });
+                }
+
+                var resetRecord = await _context.SIFRE_SIFIRLAMAs
+                    .Include(s => s.kullanici)
+                    .FirstOrDefaultAsync(s => s.token == request.Token && !s.kullanildi_mi && s.son_kullanma_tarihi > DateTime.Now);
+
+                if (resetRecord == null)
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Geçersiz veya süresi dolmuş token."
+                    });
+                }
+
+                return Ok(new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Token geçerli.",
+                    Data = new { UserId = resetRecord.kullanici_id, Email = resetRecord.kullanici.eposta }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Token doğrulama sırasında hata oluştu. Token: {Token}", request.Token);
+                return StatusCode(500, new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "Token doğrulama sırasında bir hata oluştu."
+                });
+            }
+        }
+
+        // Şifre Sıfırlama
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> ResetPassword([FromBody] ResetPasswordRequestDto request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Token ve yeni şifre gereklidir."
+                    });
+                }
+
+                if (request.NewPassword.Length < 6)
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Şifre en az 6 karakter olmalıdır."
+                    });
+                }
+
+                var resetRecord = await _context.SIFRE_SIFIRLAMAs
+                    .Include(s => s.kullanici)
+                    .FirstOrDefaultAsync(s => s.token == request.Token && !s.kullanildi_mi && s.son_kullanma_tarihi > DateTime.Now);
+
+                if (resetRecord == null)
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Geçersiz veya süresi dolmuş token."
+                    });
+                }
+
+                // Şifreyi güncelle
+                var user = await _userManager.FindByIdAsync(resetRecord.kullanici_id.ToString());
+                if (user == null)
+                {
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Kullanıcı bulunamadı."
+                    });
+                }
+
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var result = await _userManager.ResetPasswordAsync(user, token, request.NewPassword);
+
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return BadRequest(new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = $"Şifre güncellenemedi: {errors}"
+                    });
+                }
+
+                // Token'ı kullanıldı olarak işaretle
+                resetRecord.kullanildi_mi = true;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Şifre başarıyla sıfırlandı. Kullanıcı: {Email}", user.Email);
+
+                return Ok(new AuthResponseDto
+                {
+                    Success = true,
+                    Message = "Şifreniz başarıyla güncellendi."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Şifre sıfırlama sırasında hata oluştu. Token: {Token}", request.Token);
+                return StatusCode(500, new AuthResponseDto
+                {
+                    Success = false,
+                    Message = "Şifre sıfırlama sırasında bir hata oluştu."
+                });
+            }
+        }
+
+        // POST: api/Auth/refresh
+        [HttpPost("refresh")]
+        [Authorize]
+        public async Task<IActionResult> RefreshToken()
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new { success = false, message = "Geçersiz token" });
+                }
+
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    return Unauthorized(new { success = false, message = "Kullanıcı bulunamadı" });
+                }
+
+                // Yeni token oluştur
+                var newToken = await _tokenService.GenerateJwtTokenAsync(user);
+                
+                // Kullanıcı bilgilerini hazırla
+                var roles = await _userManager.GetRolesAsync(user);
+                var userDto = new
+                {
+                    id = user.Id,
+                    ad = user.Ad,
+                    soyad = user.Soyad,
+                    email = user.Email,
+                    telefon = user.PhoneNumber,
+                    roles = roles.ToArray(),
+                    kullanicilarId = user.KullanicilarId,
+                    kayitTarihi = user.KayitTarihi.ToString("yyyy-MM-dd"),
+                    emailDogrulandi = user.EmailConfirmed
+                };
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Token başarıyla yenilendi",
+                    token = newToken,
+                    user = userDto
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"Token yenilenirken hata oluştu: {ex.Message}" });
             }
         }
     }

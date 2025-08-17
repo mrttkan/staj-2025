@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import Dashboard from './components/Dashboard';
 import './App.css';
+import './components/CommonButtonStyles.css';
 
 function AppContent() {
-  const [showRegister, setShowRegister] = useState(false);
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, token } = useAuth();
 
   if (isLoading) {
     return (
@@ -20,15 +23,41 @@ function AppContent() {
     );
   }
 
-  if (!isAuthenticated) {
-    return showRegister ? (
-      <Register onSwitchToLogin={() => setShowRegister(false)} />
-    ) : (
-      <Login onSwitchToRegister={() => setShowRegister(true)} />
-    );
-  }
-
-  return <Dashboard />;
+  return (
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/" element={
+          isAuthenticated ? (
+            <Dashboard user={user} token={token} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+        <Route path="/login" element={
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Login />
+          )
+        } />
+        <Route path="/register" element={
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <Register />
+          )
+        } />
+        <Route path="/forgot-password" element={
+          isAuthenticated ? (
+            <Navigate to="/" replace />
+          ) : (
+            <ForgotPassword />
+          )
+        } />
+      </Routes>
+    </Router>
+  );
 }
 
 function App() {

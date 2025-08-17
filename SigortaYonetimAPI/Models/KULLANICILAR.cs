@@ -39,11 +39,10 @@ public partial class KULLANICILAR
 
     public virtual ICollection<DOKUMANLAR> DOKUMANLARs { get; set; } = new List<DOKUMANLAR>();
 
-    public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARbildiren_kullanicis { get; set; } = new List<HASAR_DOSYALAR>();
 
-    public virtual ICollection<HASAR_DOSYALAR> HASAR_DOSYALARsorumlu_ekspers { get; set; } = new List<HASAR_DOSYALAR>();
 
     public virtual ICollection<HASAR_TAKIP_NOTLARI> HASAR_TAKIP_NOTLARIs { get; set; } = new List<HASAR_TAKIP_NOTLARI>();
+    public virtual ICollection<HASAR_DOSYA_EKLELERI> HASAR_DOSYA_EKLELERIs { get; set; } = new List<HASAR_DOSYA_EKLELERI>();
 
     public virtual ICollection<KOMISYON_HESAPLARI> KOMISYON_HESAPLARIs { get; set; } = new List<KOMISYON_HESAPLARI>();
 

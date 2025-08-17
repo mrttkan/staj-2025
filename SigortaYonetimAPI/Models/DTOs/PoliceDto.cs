@@ -18,6 +18,21 @@ namespace SigortaYonetimAPI.Models.DTOs
         public string? teklif_no { get; set; }
     }
 
+    public class MusteriPoliceListDto
+    {
+        public int id { get; set; }
+        public string police_no { get; set; } = string.Empty;
+        public string police_turu_adi { get; set; } = string.Empty;
+        public string sigorta_sirketi_adi { get; set; } = string.Empty;
+        public DateTime baslangic_tarihi { get; set; }
+        public DateTime bitis_tarihi { get; set; }
+        public decimal toplam_tutar { get; set; }
+        public string durum_adi { get; set; } = string.Empty;
+        public int durum_id { get; set; }
+        public DateTime tanzim_tarihi { get; set; }
+        public string? teklif_no { get; set; }
+    }
+
     public class PoliceDetayDto
     {
         public int id { get; set; }

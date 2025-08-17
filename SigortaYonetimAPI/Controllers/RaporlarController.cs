@@ -46,7 +46,7 @@ namespace SigortaYonetimAPI.Controllers
                 BuYilToplamPrim = await _context.POLISELERs
                     .Where(p => p.tanzim_tarihi >= buYil).SumAsync(p => p.brut_prim ?? 0),
                 BuYilToplamHasarTutari = await _context.HASAR_DOSYALARs
-                    .Where(h => h.olusturma_tarihi >= buYil && h.durum_id == 4).SumAsync(h => h.toplam_tutar ?? 0)
+                    .Where(h => h.olusturma_tarihi >= buYil && h.durum_id == 4).SumAsync(h => h.talep_edilen_tutar ?? 0)
             };
 
             return Ok(istatistikler);
@@ -118,12 +118,12 @@ namespace SigortaYonetimAPI.Controllers
         {
             var dagilim = await _context.HASAR_DOSYALARs
                 .Include(h => h.durum)
-                .GroupBy(h => new { h.durum_id, h.durum.deger_aciklama })
+                .GroupBy(h => new { h.durum_id, h.durum!.deger_aciklama })
                 .Select(g => new HasarDurumDagilimiDto
                 {
                     DurumAdi = g.Key.deger_aciklama,
                     Adet = g.Count(),
-                    ToplamTutar = g.Sum(h => h.toplam_tutar ?? 0)
+                    ToplamTutar = g.Sum(h => h.talep_edilen_tutar ?? 0)
                 })
                 .OrderByDescending(x => x.Adet)
                 .ToListAsync();
@@ -137,7 +137,7 @@ namespace SigortaYonetimAPI.Controllers
         {
             var dagilim = await _context.ODEMELERs
                 .Include(o => o.durum)
-                .GroupBy(o => new { o.durum_id, o.durum.deger_aciklama })
+                .GroupBy(o => new { o.durum_id, o.durum!.deger_aciklama })
                 .Select(g => new OdemeDurumDagilimiDto
                 {
                     DurumAdi = g.Key.deger_aciklama,
@@ -156,12 +156,12 @@ namespace SigortaYonetimAPI.Controllers
         {
             var musteriler = await _context.HASAR_DOSYALARs
                 .Include(h => h.musteri)
-                .GroupBy(h => new { h.musteri_id, h.musteri.ad, h.musteri.soyad })
+                .GroupBy(h => new { h.musteri_id, h.musteri!.ad, h.musteri!.soyad })
                 .Select(g => new EnCokHasarMusteriDto
                 {
                     MusteriAdi = ($"{g.Key.ad} {g.Key.soyad}").Trim(),
                     HasarSayisi = g.Count(),
-                    ToplamTutar = g.Sum(h => h.toplam_tutar ?? 0)
+                    ToplamTutar = g.Sum(h => h.talep_edilen_tutar ?? 0)
                 })
                 .OrderByDescending(x => x.HasarSayisi)
                 .Take(limit)
@@ -182,8 +182,8 @@ namespace SigortaYonetimAPI.Controllers
                 .Select(p => new EnYuksekPrimPoliceDto
                 {
                     PoliceNo = p.police_no,
-                    MusteriAdi = ($"{p.musteri.ad} {p.musteri.soyad}").Trim(),
-                    PoliceTuruAdi = p.police_turu.urun_adi,
+                    MusteriAdi = ($"{p.musteri!.ad} {p.musteri!.soyad}").Trim(),
+                    PoliceTuruAdi = p.police_turu!.urun_adi,
                     BrutPrim = p.brut_prim ?? 0,
                     OlusturmaTarihi = p.tanzim_tarihi
                 })

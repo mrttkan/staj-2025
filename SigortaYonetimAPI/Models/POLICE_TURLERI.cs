@@ -7,10 +7,6 @@ public partial class POLICE_TURLERI
 {
     public int id { get; set; }
 
-    public int kategori_id { get; set; }
-
-    public int alt_kategori_id { get; set; }
-
     public string urun_adi { get; set; } = null!;
 
     public string urun_kodu { get; set; } = null!;
@@ -37,7 +33,7 @@ public partial class POLICE_TURLERI
 
     public virtual ICollection<POLISELER> POLISELERs { get; set; } = new List<POLISELER>();
 
-    public virtual DURUM_TANIMLARI alt_kategori { get; set; } = null!;
+    public virtual ICollection<TEMINATLAR> TEMINATLARs { get; set; } = new List<TEMINATLAR>();
 
-    public virtual DURUM_TANIMLARI kategori { get; set; } = null!;
+    public virtual ICollection<FIYATLANDIRMA_KURALLARI> FIYATLANDIRMA_KURALLARIs { get; set; } = new List<FIYATLANDIRMA_KURALLARI>();
 }

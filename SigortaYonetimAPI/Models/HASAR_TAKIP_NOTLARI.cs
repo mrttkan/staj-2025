@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SigortaYonetimAPI.Models;
 
@@ -13,13 +13,11 @@ public partial class HASAR_TAKIP_NOTLARI
 
     public string not_metni { get; set; } = null!;
 
-    public int? not_tipi_id { get; set; }
-
     public DateTime olusturma_tarihi { get; set; }
 
-    public virtual HASAR_DOSYALAR hasar { get; set; } = null!;
+    [ForeignKey("hasar_id")]
+    public virtual HASAR_DOSYALAR? hasar { get; set; }
 
-    public virtual KULLANICILAR kullanici { get; set; } = null!;
-
-    public virtual DURUM_TANIMLARI? not_tipi { get; set; }
+    [ForeignKey("kullanici_id")]
+    public virtual KULLANICILAR? kullanici { get; set; }
 }

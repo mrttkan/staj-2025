@@ -1,3 +1,13 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+build/
+dist/
+
 # .NET
 bin/
 obj/
@@ -7,22 +17,24 @@ obj/
 *.pdb
 *.dll
 *.exe
-.vs/
 *.log
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Visual Studio
+.vs/
+*.sln.docstates
+*.userprefs
+
+# SQL Server
+*.mdf
+*.ldf
+*.ndf
+
+# Environment variables
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-
-# React
-build/
-dist/
 
 # IDE
 .vscode/
@@ -33,11 +45,6 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
-
-# Database
-*.mdf
-*.ldf
-*.ndf
 
 # Logs
 logs/
@@ -51,6 +58,9 @@ pids/
 
 # Coverage directory used by tools like istanbul
 coverage/
+
+# nyc test coverage
+.nyc_output
 
 # Dependency directories
 jspm_packages/
@@ -68,4 +78,36 @@ jspm_packages/
 .yarn-integrity
 
 # dotenv environment variables file
-.env 
+.env
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Temporary folders
+tmp/
+temp/ 

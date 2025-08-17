@@ -31,9 +31,17 @@ namespace SigortaYonetimAPI.Models.DTOs
         [RegularExpression(@"^\d{10}$", ErrorMessage = "Telefon numarası 10 haneli olmalıdır (5XX XXX XX XX formatında)")]
         public string Telefon { get; set; } = string.Empty;
 
+        // Şirket Adı (opsiyonel)
+        [StringLength(200, ErrorMessage = "Şirket adı en fazla 200 karakter olabilir")]
+        public string? SirketAdi { get; set; }
+
         // TC Kimlik No (opsiyonel)
         [RegularExpression(@"^\d{11}$", ErrorMessage = "TC Kimlik No 11 haneli olmalıdır")]
         public string? TcKimlikNo { get; set; }
+
+        // Vergi No (opsiyonel)
+        [RegularExpression(@"^\d{10}$", ErrorMessage = "Vergi No 10 haneli olmalıdır")]
+        public string? VergiNo { get; set; }
 
         // Doğum tarihi (opsiyonel)
         public DateTime? DogumTarihi { get; set; }
@@ -83,5 +91,9 @@ namespace SigortaYonetimAPI.Models.DTOs
         [StringLength(10, ErrorMessage = "Posta kodu en fazla 10 karakter olabilir")]
         [RegularExpression(@"^[0-9]+$", ErrorMessage = "Posta kodu sadece rakam içerebilir")]
         public string? PostaKodu { get; set; }
+
+        // Not bilgileri (opsiyonel)
+        [StringLength(1000, ErrorMessage = "Not bilgileri en fazla 1000 karakter olabilir")]
+        public string? NotBilgileri { get; set; }
     }
 } 
